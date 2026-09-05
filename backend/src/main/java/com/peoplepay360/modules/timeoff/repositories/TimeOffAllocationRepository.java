@@ -19,6 +19,8 @@ public interface TimeOffAllocationRepository extends JpaRepository<TimeOffAlloca
 
     List<TimeOffAllocation> findByEmployeeIdOrderByValidFromDesc(UUID employeeId);
 
+    Page<TimeOffAllocation> findByEmployeeIdOrderByValidFromDesc(UUID employeeId, Pageable pageable);
+
     Page<TimeOffAllocation> findByStatus(TimeOffStatus status, Pageable pageable);
 
     @Query("SELECT COALESCE(SUM(a.allocatedUnits), 0) FROM TimeOffAllocation a " +

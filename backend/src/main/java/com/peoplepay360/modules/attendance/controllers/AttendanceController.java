@@ -45,6 +45,17 @@ public class AttendanceController {
     private final AttendanceRecordRepository attendanceRepository;
     private final EmployeeRepository employeeRepository;
 
+    @GetMapping
+    public ResponseEntity<ApiResponse<PageResponse<AttendanceResponse>>> getAllAttendance(
+            @RequestParam(required = false) UUID employeeId,
+            @PageableDefault(size = 20) Pageable pageable
+    ) {
+        Page<AttendanceRecord> page = employeeId != null
+                ? attendanceRepository.findByEmployeeIdOrderByDateDesc(employeeId, pageable)
+                : attendanceRepository.findAll(pageable);
+        return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(page.map(AttendanceResponse::from))));
+    }
+
     @PostMapping("/punch")
     public ResponseEntity<ApiResponse<AttendanceResponse>> punch(@Valid @RequestBody AttendancePunchRequest request) {
         Employee employee = employeeRepository.findById(request.getEmployeeId())

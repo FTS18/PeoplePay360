@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -19,6 +20,19 @@ public interface TimeOffRequestRepository extends JpaRepository<TimeOffRequest, 
     Page<TimeOffRequest> findByEmployeeIdOrderByStartDateDesc(UUID employeeId, Pageable pageable);
 
     Page<TimeOffRequest> findByStatus(TimeOffStatus status, Pageable pageable);
+
+    @Query("SELECT r FROM TimeOffRequest r " +
+           "WHERE r.employee.id = :employeeId " +
+           "AND r.status = 'APPROVED' " +
+           "AND r.timeOffType.isPaid = :isPaid " +
+           "AND r.startDate <= :periodEnd " +
+           "AND r.endDate >= :periodStart")
+    List<TimeOffRequest> findApprovedLeavesInWindow(
+            @Param("employeeId") UUID employeeId,
+            @Param("periodStart") LocalDate periodStart,
+            @Param("periodEnd") LocalDate periodEnd,
+            @Param("isPaid") boolean isPaid
+    );
 
     @Query("SELECT COALESCE(SUM(r.requestedUnits), 0) FROM TimeOffRequest r " +
            "WHERE r.employee.id = :employeeId " +

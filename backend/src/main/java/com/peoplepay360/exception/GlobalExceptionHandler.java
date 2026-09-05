@@ -1,6 +1,7 @@
 package com.peoplepay360.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -8,11 +9,51 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(
+            DataIntegrityViolationException ex,
+            HttpServletRequest request
+    ) {
+        Throwable root = ex.getRootCause();
+        if (root instanceof SQLException sqlEx && "23P01".equals(sqlEx.getSQLState())) {
+            String message = sqlEx.getMessage();
+            if (message != null && message.contains("exclude_contract_overlap")) {
+                return buildResponse(
+                        HttpStatus.CONFLICT,
+                        "An active contract already exists for this employee within the specified date window.",
+                        request.getRequestURI(),
+                        null
+                );
+            }
+            if (message != null && message.contains("exclude_approved_leave_overlap")) {
+                return buildResponse(
+                        HttpStatus.CONFLICT,
+                        "The requested time off overlaps with an already approved leave request.",
+                        request.getRequestURI(),
+                        null
+                );
+            }
+            return buildResponse(
+                    HttpStatus.CONFLICT,
+                    "Database exclusion constraint violation: overlapping date range detected.",
+                    request.getRequestURI(),
+                    null
+            );
+        }
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Database constraint violation occurred.",
+                request.getRequestURI(),
+                null
+        );
+    }
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(

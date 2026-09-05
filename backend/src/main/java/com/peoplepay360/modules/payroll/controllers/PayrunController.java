@@ -31,6 +31,11 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+import com.peoplepay360.modules.payroll.email.EmailDispatchService;
+import com.peoplepay360.modules.payroll.pdf.PdfGenerationService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+
 @RestController
 @RequestMapping("/payroll")
 @RequiredArgsConstructor
@@ -39,6 +44,8 @@ public class PayrunController {
     private final PayrollService payrollService;
     private final PayrunRepository payrunRepository;
     private final PayslipRepository payslipRepository;
+    private final PdfGenerationService pdfGenerationService;
+    private final EmailDispatchService emailDispatchService;
 
     @GetMapping("/payruns")
     public ResponseEntity<ApiResponse<PageResponse<PayrunResponse>>> getPayruns(
@@ -95,10 +102,48 @@ public class PayrunController {
         return ResponseEntity.ok(ApiResponse.ok("Payrun marked as paid", PayrunResponse.from(paid)));
     }
 
+    @GetMapping("/payslips")
+    public ResponseEntity<ApiResponse<PageResponse<PayslipResponse>>> getPayslips(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) UUID payrunId,
+            @PageableDefault(size = 20) Pageable pageable
+    ) {
+        Page<Payslip> page = payrunId != null
+                ? payslipRepository.findByPayrunId(payrunId, pageable)
+                : payslipRepository.findAll(pageable);
+        return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(page.map(PayslipResponse::from))));
+    }
+
     @GetMapping("/payslips/{id}")
     public ResponseEntity<ApiResponse<PayslipResponse>> getPayslipDetails(@PathVariable UUID id) {
         Payslip payslip = payslipRepository.findWithDetailsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payslip", "id", id));
         return ResponseEntity.ok(ApiResponse.ok(PayslipResponse.from(payslip)));
+    }
+
+    @GetMapping("/payslips/{id}/pdf")
+    public ResponseEntity<byte[]> downloadPayslipPdf(@PathVariable UUID id) {
+        Payslip payslip = payslipRepository.findWithDetailsById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Payslip", "id", id));
+
+        byte[] pdfBytes = pdfGenerationService.generatePayslipPdf(payslip);
+
+        String fileName = String.format("payslip_%s_%s.pdf",
+                payslip.getEmployee() != null ? payslip.getEmployee().getEmployeeCode() : "payslip",
+                payslip.getPeriodStart());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdfBytes);
+    }
+
+    @PostMapping("/payruns/{id}/send-payslips")
+    @PreAuthorize("hasAnyRole('HR_PAYROLL_MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<String>> sendPayrunPayslips(@PathVariable UUID id) {
+        Payrun payrun = payrunRepository.findWithPayslipsById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Payrun", "id", id));
+
+        emailDispatchService.dispatchBulkPayrunEmails(payrun);
+        return ResponseEntity.ok(ApiResponse.ok("Payslip email delivery initiated for " + payrun.getPayslips().size() + " employees"));
     }
 }

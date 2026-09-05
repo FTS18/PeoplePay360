@@ -20,6 +20,8 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
 
     Optional<AttendanceRecord> findByEmployeeIdAndDate(UUID employeeId, LocalDate date);
 
+    Page<AttendanceRecord> findByEmployeeIdOrderByDateDesc(UUID employeeId, Pageable pageable);
+
     List<AttendanceRecord> findByEmployeeIdAndDateBetweenOrderByDateAsc(
             UUID employeeId,
             LocalDate startDate,

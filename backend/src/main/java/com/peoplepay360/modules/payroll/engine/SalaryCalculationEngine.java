@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,21 +35,41 @@ public class SalaryCalculationEngine {
     ) {
         List<SalaryRule> orderedRules = orchestrator.orderAndValidateRules(structure.getRules());
 
+        LocalDate pStart = payrun.getPeriodStart();
+        LocalDate pEnd = payrun.getPeriodEnd();
+        long periodDays = java.time.temporal.ChronoUnit.DAYS.between(pStart, pEnd) + 1;
+
+        LocalDate sliceStart = contract.getStartDate().isAfter(pStart) ? contract.getStartDate() : pStart;
+        LocalDate effectiveEnd = contract.getEndDate() != null ? contract.getEndDate() : pEnd;
+        LocalDate sliceEnd = effectiveEnd.isBefore(pEnd) ? effectiveEnd : pEnd;
+
+        long activeDays = Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(sliceStart, sliceEnd) + 1);
+        BigDecimal prorationRatio = periodDays > 0
+                ? BigDecimal.valueOf(activeDays).divide(BigDecimal.valueOf(periodDays), 4, RoundingMode.HALF_UP)
+                : BigDecimal.ONE;
+
+        BigDecimal proratedWage = contract.getWage().multiply(prorationRatio).setScale(2, RoundingMode.HALF_UP);
+
         Payslip payslip = Payslip.builder()
                 .payrun(payrun)
                 .employee(employee)
                 .contract(contract)
                 .salaryStructure(structure)
-                .periodStart(payrun.getPeriodStart())
-                .periodEnd(payrun.getPeriodEnd())
+                .periodStart(pStart)
+                .periodEnd(pEnd)
                 .workedDays(workedDays)
-                .basicWage(contract.getWage())
+                .basicWage(proratedWage)
                 .status(PayslipStatus.COMPUTED)
                 .build();
 
         Map<String, BigDecimal> context = new HashMap<>();
         context.put("WAGE", contract.getWage());
+        context.put("PRORATED_WAGE", proratedWage);
+        context.put("BASIC", proratedWage);
+        context.put("PRORATION_RATIO", prorationRatio);
         context.put("WORKED_DAYS", BigDecimal.valueOf(workedDays));
+        context.put("ACTIVE_DAYS", BigDecimal.valueOf(activeDays));
+        context.put("PERIOD_DAYS", BigDecimal.valueOf(periodDays));
 
         BigDecimal totalBasic = BigDecimal.ZERO;
         BigDecimal totalAllowances = BigDecimal.ZERO;

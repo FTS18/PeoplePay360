@@ -101,4 +101,16 @@ public class LeaveLedgerService {
         request.setRejectionReason(reason);
         return requestRepository.save(request);
     }
+
+    public int calculateClippedLeaveDays(UUID employeeId, LocalDate periodStart, LocalDate periodEnd, boolean isPaid) {
+        java.util.List<TimeOffRequest> leaves = requestRepository.findApprovedLeavesInWindow(employeeId, periodStart, periodEnd, isPaid);
+        int totalDays = 0;
+        for (TimeOffRequest req : leaves) {
+            LocalDate start = req.getStartDate().isAfter(periodStart) ? req.getStartDate() : periodStart;
+            LocalDate end = req.getEndDate().isBefore(periodEnd) ? req.getEndDate() : periodEnd;
+            long days = java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1;
+            totalDays += (int) Math.max(0, days);
+        }
+        return totalDays;
+    }
 }
