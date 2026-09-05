@@ -195,15 +195,9 @@ The platform enforces a 5-tier access control structure ensuring strict separati
 
 *   **Official Wireframe Board:** [Excalidraw Functional Screen Flow](https://app.excalidraw.com/l/65VNwvy7c4X/17vHpCNFjex)
 *   **Technical Architecture Guide:** For full database entity definitions, API contracts, and project directory blueprints, refer to [AGENTS.md](AGENTS.md).
-
-### Architecture & Engine Diagrams
-
-#### System Domain Boundaries & Module Interconnects
-![System Domain Architecture](docs/diagrams/system_domain_architecture.png)
-
-#### Entity-Relationship & Relational Schema Architecture
-![Database Schema Architecture](docs/diagrams/database_schema_diagram.png)
-
-#### Deterministic Payrun Execution Pipeline
-![Payrun Execution Pipeline](docs/diagrams/payrun_execution_pipeline.png)
-
+*   **Database Reference Architecture:** Comprehensive operational flows, schemas, slicing algebra, and concurrency guards in [Database Reference Architecture Documentation](docs/database/README.md):
+    *   [01. Relational Entity Spine & Storage Separation](docs/database/01_relational_entity_spine.md)
+    *   [02. Temporal Slicing & Boundary Clipping](docs/database/02_temporal_slicing_boundary_clipping.md)
+    *   [03. Sequential Rule Evaluation Pipeline](docs/database/03_sequential_rule_evaluation_pipeline.md)
+    *   [04. Concurrency Worker Queue & Immutability Guard](docs/database/04_concurrency_worker_queue_immutability_guard.md)
+    *   [05. Interactive Proration & Pipeline Simulator](docs/database/05_proration_pipeline_simulator.md)

@@ -272,10 +272,16 @@ PeoplePay360/
 │   └── package.json
 │
 ├── docs/
-│   └── diagrams/
-│       ├── database_schema_diagram.png
-│       ├── payrun_execution_pipeline.png
-│       └── system_domain_architecture.png
+│   └── database/
+│       ├── assets/
+│       │   ├── 01_relational_entity_spine.png
+│       │   └── 05_proration_pipeline_simulator.png
+│       ├── 01_relational_entity_spine.md
+│       ├── 02_temporal_slicing_boundary_clipping.md
+│       ├── 03_sequential_rule_evaluation_pipeline.md
+│       ├── 04_concurrency_worker_queue_immutability_guard.md
+│       ├── 05_proration_pipeline_simulator.md
+│       └── README.md
 │
 ├── README.md
 └── .gitignore
