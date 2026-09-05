@@ -25,6 +25,12 @@ This guide complements `README.md` by providing technical specifications, databa
 
 ## 2. Database Schema & Relational Models
 
+### System Domain Boundaries
+![System Domain Architecture](docs/diagrams/system_domain_architecture.png)
+
+### Relational Schema Architecture
+![Database Schema Architecture](docs/diagrams/database_schema_diagram.png)
+
 ### Core Relational Entities (PostgreSQL)
 
 #### `employees`
@@ -160,6 +166,11 @@ This guide complements `README.md` by providing technical specifications, databa
 
 ---
 
+### Payrun Execution Engine Pipeline
+![Payrun Execution Pipeline](docs/diagrams/payrun_execution_pipeline.png)
+
+---
+
 ## 3. Project Directory Blueprint
 
 ```text
@@ -259,6 +270,12 @@ PeoplePay360/
 │   │       └── index.ts
 │   ├── tsconfig.json
 │   └── package.json
+│
+├── docs/
+│   └── diagrams/
+│       ├── database_schema_diagram.png
+│       ├── payrun_execution_pipeline.png
+│       └── system_domain_architecture.png
 │
 ├── README.md
 └── .gitignore

@@ -194,4 +194,16 @@ The platform enforces a 5-tier access control structure ensuring strict separati
 ## 7. Design & Wireframes
 
 *   **Official Wireframe Board:** [Excalidraw Functional Screen Flow](https://app.excalidraw.com/l/65VNwvy7c4X/17vHpCNFjex)
-*   **Technical Architecture Guide:** For full database entity definitions, API contracts, and project directory blueprints, refer to [`GUIDE.md`](file:///c:/Users/dubey/OneDrive/Desktop/PeoplePay360/GUIDE.md).
+*   **Technical Architecture Guide:** For full database entity definitions, API contracts, and project directory blueprints, refer to [AGENTS.md](AGENTS.md).
+
+### Architecture & Engine Diagrams
+
+#### System Domain Boundaries & Module Interconnects
+![System Domain Architecture](docs/diagrams/system_domain_architecture.png)
+
+#### Entity-Relationship & Relational Schema Architecture
+![Database Schema Architecture](docs/diagrams/database_schema_diagram.png)
+
+#### Deterministic Payrun Execution Pipeline
+![Payrun Execution Pipeline](docs/diagrams/payrun_execution_pipeline.png)
+
