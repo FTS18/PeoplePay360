@@ -1,6 +1,6 @@
 # Privacy Policy — PeoplePay360
 
-**Effective Date:** [Insert Date]
+**Effective Date:** September 5, 2026
 **Entity:** PeoplePay360 Technologies Pvt. Ltd. ("PeoplePay360," "we," "our," "us," or the "Platform")
 **Application Scope:** PeoplePay360 HR & Payroll Operations Web Platform, APIs, and Employee Self-Service Portals
 
@@ -149,8 +149,8 @@ We may update this Privacy Policy from time to time. Material changes will be co
 For questions about this Privacy Policy, data practices, system vulnerability reports, or data protection officer (DPO) communications:
 
 **PeoplePay360 Technologies Pvt. Ltd.**
-Privacy Officer Email: [insert contact email]
-Address: [insert address]
+Privacy Officer Email: privacy@peoplepay360.com
+
 
 ---
 
