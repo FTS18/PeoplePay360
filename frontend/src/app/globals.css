@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Left Sidebar: Deep Dark Charcoal-Teal */
+    --sidebar-bg: oklch(18% 0.03 195);
+    --sidebar-fg: oklch(95% 0.01 195);
+    --sidebar-muted: oklch(70% 0.02 195);
+    --sidebar-active-bg: oklch(28% 0.06 195);
+    --sidebar-active-fg: oklch(85% 0.14 195);
+    --sidebar-border: oklch(24% 0.03 195);
+
+    /* Right Canvas: Airy Soft Off-White */
+    --canvas-bg: oklch(97% 0.005 240);
+    --background: oklch(97% 0.005 240);
+    --foreground: oklch(20% 0.02 240);
+
+    /* Floating Pure White Cards & Containers */
+    --card: oklch(100% 0 0);
+    --card-foreground: oklch(20% 0.02 240);
+
+    /* Typography & Headers */
+    --text-header: oklch(20% 0.02 240);
+    --muted: oklch(94% 0.005 240);
+    --muted-foreground: oklch(50% 0.02 240);
+
+    /* Primary & Accents */
+    --primary: oklch(20% 0.03 195);
+    --primary-foreground: oklch(98% 0.01 195);
+    --secondary: oklch(94% 0.005 240);
+    --secondary-foreground: oklch(20% 0.02 240);
+
+    --border: oklch(92% 0.005 240);
+    --input: oklch(92% 0.005 240);
+    --ring: oklch(85% 0.14 195);
+
+    /* Accents */
+    --accent-teal: oklch(85% 0.14 195);
+    --accent-teal-deep: oklch(35% 0.08 195);
+    --accent-gold: oklch(82% 0.15 85);
+    --accent-green: oklch(75% 0.16 150);
+
+    --radius-card: 0.875rem; /* 14px */
+  }
+
+  body {
+    background-color: var(--canvas-bg);
+    color: var(--foreground);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Custom subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(85% 0.01 240);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(70% 0.02 240);
+  }
+
+  /* Text selection highlight */
+  ::selection {
+    background-color: oklch(28% 0.06 195);
+    color: oklch(85% 0.14 195);
+  }
+}
