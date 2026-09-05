@@ -39,6 +39,14 @@ public class TimeOffType extends BaseEntity {
     @Column(name = "color_code", length = 10)
     private String colorCode;
 
+    @Column(name = "is_paid", nullable = false)
+    @Builder.Default
+    private boolean isPaid = true;
+
+    @Column(name = "payroll_affecting", nullable = false)
+    @Builder.Default
+    private boolean payrollAffecting = false;
+
     @Column(name = "active", nullable = false)
     @Builder.Default
     private boolean active = true;

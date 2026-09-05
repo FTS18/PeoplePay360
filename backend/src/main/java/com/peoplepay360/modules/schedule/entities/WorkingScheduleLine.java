@@ -1,10 +1,10 @@
 package com.peoplepay360.modules.schedule.entities;
 
 import com.peoplepay360.common.BaseEntity;
+import com.peoplepay360.common.converter.DayOfWeekConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -32,8 +32,8 @@ public class WorkingScheduleLine extends BaseEntity {
     @JoinColumn(name = "working_schedule_id", nullable = false)
     private WorkingSchedule workingSchedule;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "day_of_week", nullable = false, length = 20)
+    @Convert(converter = DayOfWeekConverter.class)
+    @Column(name = "day_of_week", nullable = false)
     private DayOfWeek dayOfWeek;
 
     @Column(name = "start_time", nullable = false)

@@ -92,4 +92,61 @@ public class EmployeeService {
 
         return EmployeeResponse.from(employeeRepository.save(employee));
     }
+
+    @Transactional
+    public EmployeeResponse updateEmployee(UUID id, com.peoplepay360.modules.employee.dto.requests.UpdateEmployeeRequest request) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", id));
+
+        if (request.getFirstName() != null && !request.getFirstName().isBlank()) {
+            employee.setFirstName(request.getFirstName().trim());
+        }
+        if (request.getLastName() != null && !request.getLastName().isBlank()) {
+            employee.setLastName(request.getLastName().trim());
+        }
+        if (request.getEmail() != null && !request.getEmail().isBlank() && !request.getEmail().equalsIgnoreCase(employee.getEmail())) {
+            if (employeeRepository.existsByEmail(request.getEmail().trim())) {
+                throw new BusinessRuleViolationException("Email is already registered: " + request.getEmail());
+            }
+            employee.setEmail(request.getEmail().trim());
+        }
+        if (request.getPhone() != null) {
+            employee.setPhone(request.getPhone());
+        }
+        if (request.getDepartment() != null && !request.getDepartment().isBlank()) {
+            employee.setDepartment(request.getDepartment());
+        }
+        if (request.getJobPosition() != null && !request.getJobPosition().isBlank()) {
+            employee.setJobPosition(request.getJobPosition());
+        }
+        if (request.getRole() != null) {
+            employee.setRole(request.getRole());
+        }
+        if (request.getStatus() != null) {
+            employee.setStatus(request.getStatus());
+        }
+        if (request.getBankAccountNumber() != null) {
+            employee.setBankAccountNumber(request.getBankAccountNumber());
+        }
+        if (request.getBankName() != null) {
+            employee.setBankName(request.getBankName());
+        }
+        if (request.getBankIdentifierCode() != null) {
+            employee.setBankIdentifierCode(request.getBankIdentifierCode());
+        }
+        if (request.getIdentificationNumber() != null) {
+            employee.setIdentificationNumber(request.getIdentificationNumber());
+        }
+
+        if (request.getManagerId() != null) {
+            Employee manager = employeeRepository.findById(request.getManagerId()).orElse(null);
+            employee.setManager(manager);
+        }
+        if (request.getWorkingScheduleId() != null) {
+            WorkingSchedule schedule = scheduleRepository.findById(request.getWorkingScheduleId()).orElse(null);
+            employee.setWorkingSchedule(schedule);
+        }
+
+        return EmployeeResponse.from(employeeRepository.save(employee));
+    }
 }

@@ -54,15 +54,18 @@ public class TimeOffController {
 
     @GetMapping("/balances")
     public ResponseEntity<ApiResponse<List<TimeOffBalanceResponse>>> getBalances(
-            @RequestParam UUID employeeId,
-            @RequestParam(required = false) LocalDate asOfDate
+            @RequestParam(required = false) UUID employeeId,
+            @RequestParam(required = false) LocalDate asOfDate,
+            @AuthenticationPrincipal SecurityUser currentUser
     ) {
+        boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
+        UUID resolvedId = isEmployee ? currentUser.getId() : (employeeId != null ? employeeId : currentUser.getId());
         LocalDate queryDate = asOfDate != null ? asOfDate : LocalDate.now();
         List<TimeOffType> types = typeRepository.findByActiveTrue();
 
         List<TimeOffBalanceResponse> balances = types.stream().map(type -> {
             BigDecimal bal = type.isRequiresAllocation()
-                    ? leaveLedgerService.getAvailableBalance(employeeId, type.getId(), queryDate)
+                    ? leaveLedgerService.getAvailableBalance(resolvedId, type.getId(), queryDate)
                     : BigDecimal.valueOf(999);
 
             return TimeOffBalanceResponse.builder()
@@ -81,10 +84,13 @@ public class TimeOffController {
     @GetMapping("/requests")
     public ResponseEntity<ApiResponse<PageResponse<TimeOffRequestResponse>>> getRequests(
             @RequestParam(required = false) UUID employeeId,
-            @PageableDefault(size = 20) Pageable pageable
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal SecurityUser currentUser
     ) {
-        Page<TimeOffRequest> page = employeeId != null
-                ? requestRepository.findByEmployeeIdOrderByStartDateDesc(employeeId, pageable)
+        boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
+        UUID resolvedId = isEmployee ? currentUser.getId() : employeeId;
+        Page<TimeOffRequest> page = resolvedId != null
+                ? requestRepository.findByEmployeeIdOrderByStartDateDesc(resolvedId, pageable)
                 : requestRepository.findAll(pageable);
 
         return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(page.map(TimeOffRequestResponse::from))));
@@ -92,10 +98,14 @@ public class TimeOffController {
 
     @PostMapping("/requests")
     public ResponseEntity<ApiResponse<TimeOffRequestResponse>> applyLeave(
-            @Valid @RequestBody CreateTimeOffRequestDto dto
+            @Valid @RequestBody CreateTimeOffRequestDto dto,
+            @AuthenticationPrincipal SecurityUser currentUser
     ) {
-        Employee employee = employeeRepository.findById(dto.getEmployeeId())
-                .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", dto.getEmployeeId()));
+        boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
+        UUID targetEmployeeId = isEmployee ? currentUser.getId() : dto.getEmployeeId();
+
+        Employee employee = employeeRepository.findById(targetEmployeeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", targetEmployeeId));
 
         TimeOffType type = typeRepository.findById(dto.getTimeOffTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("TimeOffType", "id", dto.getTimeOffTypeId()));

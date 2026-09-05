@@ -48,10 +48,13 @@ public class TimeOffAllocationController {
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<AllocationResponse>>> getAllocations(
             @RequestParam(required = false) UUID employeeId,
-            @PageableDefault(size = 20) Pageable pageable
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal SecurityUser currentUser
     ) {
-        Page<TimeOffAllocation> page = employeeId != null
-                ? allocationRepository.findByEmployeeIdOrderByValidFromDesc(employeeId, pageable)
+        boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
+        UUID resolvedId = isEmployee ? currentUser.getId() : employeeId;
+        Page<TimeOffAllocation> page = resolvedId != null
+                ? allocationRepository.findByEmployeeIdOrderByValidFromDesc(resolvedId, pageable)
                 : allocationRepository.findAll(pageable);
 
         return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(page.map(AllocationResponse::from))));

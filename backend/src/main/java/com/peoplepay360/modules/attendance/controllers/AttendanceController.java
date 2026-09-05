@@ -48,16 +48,28 @@ public class AttendanceController {
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<AttendanceResponse>>> getAllAttendance(
             @RequestParam(required = false) UUID employeeId,
-            @PageableDefault(size = 20) Pageable pageable
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal SecurityUser currentUser
     ) {
-        Page<AttendanceRecord> page = employeeId != null
-                ? attendanceRepository.findByEmployeeIdOrderByDateDesc(employeeId, pageable)
+        boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
+        // EMPLOYEE role is always scoped to their own records regardless of the query param.
+        UUID resolvedId = isEmployee ? currentUser.getId() : employeeId;
+        Page<AttendanceRecord> page = resolvedId != null
+                ? attendanceRepository.findByEmployeeIdOrderByDateDesc(resolvedId, pageable)
                 : attendanceRepository.findAll(pageable);
         return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(page.map(AttendanceResponse::from))));
     }
 
     @PostMapping("/punch")
-    public ResponseEntity<ApiResponse<AttendanceResponse>> punch(@Valid @RequestBody AttendancePunchRequest request) {
+    public ResponseEntity<ApiResponse<AttendanceResponse>> punch(
+            @Valid @RequestBody AttendancePunchRequest request,
+            @AuthenticationPrincipal SecurityUser currentUser
+    ) {
+        boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
+        if (isEmployee && !currentUser.getId().equals(request.getEmployeeId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Cannot punch attendance for another employee");
+        }
+
         Employee employee = employeeRepository.findById(request.getEmployeeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", request.getEmployeeId()));
 
@@ -91,8 +103,13 @@ public class AttendanceController {
     public ResponseEntity<ApiResponse<List<AttendanceResponse>>> getEmployeeAttendance(
             @PathVariable UUID employeeId,
             @RequestParam LocalDate startDate,
-            @RequestParam LocalDate endDate
+            @RequestParam LocalDate endDate,
+            @AuthenticationPrincipal SecurityUser currentUser
     ) {
+        boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
+        if (isEmployee && !currentUser.getId().equals(employeeId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Access denied");
+        }
         List<AttendanceRecord> records = attendanceRepository.findByEmployeeIdAndDateBetweenOrderByDateAsc(
                 employeeId, startDate, endDate
         );
