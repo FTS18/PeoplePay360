@@ -23,8 +23,8 @@ export interface ApiResponse<T> {
 
 export interface PageResponse<T> {
   content: T[];
-  pageNumber: number;
-  pageSize: number;
+  page: number;
+  size: number;
   totalElements: number;
   totalPages: number;
   last: boolean;
@@ -37,6 +37,7 @@ export interface UserSession {
   lastName: string;
   role: Role;
   token?: string;
+  refreshToken?: string;
 }
 
 export interface Employee {
@@ -46,9 +47,7 @@ export interface Employee {
   lastName: string;
   fullName?: string;
   email?: string;
-  workEmail?: string;
   phone?: string;
-  workPhone?: string;
   department: string;
   jobPosition: string;
   role?: Role;
@@ -56,21 +55,17 @@ export interface Employee {
   bankAccountNumber?: string;
   bankName?: string;
   bankIdentifierCode?: string;
-  bankIfscOrRouting?: string;
   identificationNumber?: string;
-  taxIdOrPan?: string;
   joiningDate?: string;
   managerId?: string;
   managerName?: string;
   workingScheduleId?: string;
   workingScheduleName?: string;
-  createdAt?: string;
 }
 
 export interface Contract {
   id: string;
   reference: string;
-  contractReference?: string;
   employeeId: string;
   employeeName?: string;
   department?: string;
@@ -80,7 +75,6 @@ export interface Contract {
   workingScheduleId?: string;
   workingScheduleName?: string;
   wage: number;
-  monthlyWage?: number;
   startDate: string;
   endDate?: string;
   status: ContractStatus;
@@ -108,7 +102,7 @@ export interface AttendanceRecord {
   id: string;
   employeeId: string;
   employeeName: string;
-  employeeCode: string;
+  employeeCode?: string;
   date: string;
   checkIn?: string;
   checkOut?: string;
@@ -127,6 +121,8 @@ export interface TimeOffType {
   unit: "DAYS" | "HOURS";
   requiresAllocation: boolean;
   colorCode?: string;
+  isPaid?: boolean;
+  payrollAffecting?: boolean;
   active: boolean;
 }
 
@@ -142,6 +138,7 @@ export interface TimeOffBalance {
 export interface TimeOffAllocation {
   id: string;
   employeeId: string;
+  employeeCode?: string;
   employeeName: string;
   timeOffTypeId: string;
   timeOffTypeName: string;
@@ -157,7 +154,7 @@ export interface TimeOffRequest {
   id: string;
   employeeId: string;
   employeeName: string;
-  employeeCode: string;
+  employeeCode?: string;
   timeOffTypeId: string;
   timeOffTypeName: string;
   startDate: string;
@@ -207,6 +204,7 @@ export interface Payrun {
   totalDeductions: number;
   totalNet: number;
   payslipsCount: number;
+  validatedAt?: string;
   paidAt?: string;
 }
 
@@ -227,6 +225,7 @@ export interface Payslip {
   totalDeductions: number;
   netSalary: number;
   status: PayslipStatus;
+  contractReference?: string;
   pdfGenerated: boolean;
   emailSent: boolean;
   lines?: PayslipLine[];

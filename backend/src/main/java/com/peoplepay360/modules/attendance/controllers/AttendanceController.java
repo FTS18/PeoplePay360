@@ -22,6 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,6 +38,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import com.peoplepay360.modules.payroll.repositories.PayrunRepository;
+import com.peoplepay360.exception.BusinessRuleViolationException;
+
 @RestController
 @RequestMapping("/attendance")
 @RequiredArgsConstructor
@@ -44,8 +48,34 @@ public class AttendanceController {
 
     private final AttendanceRecordRepository attendanceRepository;
     private final EmployeeRepository employeeRepository;
+    private final PayrunRepository payrunRepository;
+
+    @GetMapping("/stats")
+    @Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse<AttendanceStatsResponse>> getAttendanceStats(
+            @RequestParam(required = false) UUID employeeId,
+            @AuthenticationPrincipal SecurityUser currentUser
+    ) {
+        boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
+        UUID resolvedId = isEmployee ? currentUser.getId() : employeeId;
+
+        long totalEntries = attendanceRepository.countTotalRecords(resolvedId);
+        long presentCount = attendanceRepository.countPresentRecords(resolvedId);
+        long exceptionCount = attendanceRepository.countExceptionRecords(resolvedId);
+        BigDecimal totalWorkedHours = attendanceRepository.sumTotalWorkedHoursAll(resolvedId);
+
+        AttendanceStatsResponse stats = AttendanceStatsResponse.builder()
+                .totalEntries(totalEntries)
+                .presentCount(presentCount)
+                .exceptionCount(exceptionCount)
+                .totalWorkedHours(totalWorkedHours != null ? totalWorkedHours : BigDecimal.ZERO)
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.ok(stats));
+    }
 
     @GetMapping
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<PageResponse<AttendanceResponse>>> getAllAttendance(
             @RequestParam(required = false) UUID employeeId,
             @PageableDefault(size = 20) Pageable pageable,
@@ -56,7 +86,7 @@ public class AttendanceController {
         UUID resolvedId = isEmployee ? currentUser.getId() : employeeId;
         Page<AttendanceRecord> page = resolvedId != null
                 ? attendanceRepository.findByEmployeeIdOrderByDateDesc(resolvedId, pageable)
-                : attendanceRepository.findAll(pageable);
+                : attendanceRepository.findAllByOrderByDateDesc(pageable);
         return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(page.map(AttendanceResponse::from))));
     }
 
@@ -75,11 +105,15 @@ public class AttendanceController {
 
         Instant now = request.getTimestamp() != null ? request.getTimestamp() : Instant.now();
 
+        BigDecimal expectedHours = (employee.getWorkingSchedule() != null && employee.getWorkingSchedule().getAverageHoursPerDay() != null)
+                ? employee.getWorkingSchedule().getAverageHoursPerDay()
+                : BigDecimal.valueOf(8);
+
         AttendanceRecord record = attendanceRepository.findByEmployeeIdAndDate(employee.getId(), request.getDate())
                 .orElseGet(() -> AttendanceRecord.builder()
                         .employee(employee)
                         .date(request.getDate())
-                        .expectedHours(BigDecimal.valueOf(8))
+                        .expectedHours(expectedHours)
                         .status(AttendanceStatus.PRESENT)
                         .build());
 
@@ -87,10 +121,11 @@ public class AttendanceController {
             record.setCheckIn(now);
         } else if (record.getCheckOut() == null) {
             record.setCheckOut(now);
-            long minutes = Duration.between(record.getCheckIn(), now).toMinutes();
-            BigDecimal hours = BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+            long seconds = Duration.between(record.getCheckIn(), now).getSeconds();
+            BigDecimal hours = BigDecimal.valueOf(seconds).divide(BigDecimal.valueOf(3600), 2, RoundingMode.HALF_UP);
             record.setWorkedHours(hours);
-            if (hours.compareTo(record.getExpectedHours().divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP)) < 0) {
+            BigDecimal halfExpected = record.getExpectedHours().divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+            if (hours.compareTo(halfExpected) < 0) {
                 record.setStatus(AttendanceStatus.HALF_DAY);
             }
         }
@@ -137,6 +172,11 @@ public class AttendanceController {
     ) {
         AttendanceRecord record = attendanceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("AttendanceRecord", "id", id));
+
+        boolean isLocked = payrunRepository.existsPaidPayrunForEmployeeOnDate(record.getEmployee().getId(), record.getDate());
+        if (isLocked) {
+            throw new BusinessRuleViolationException("Attendance records belonging to a finalized and paid payrun period cannot be modified retroactively");
+        }
 
         Employee reviewer = employeeRepository.findById(currentUser.getId()).orElse(null);
 

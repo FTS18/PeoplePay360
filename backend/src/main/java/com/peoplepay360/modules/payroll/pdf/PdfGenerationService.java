@@ -75,26 +75,26 @@ public class PdfGenerationService {
             table.addCell(createHeaderCell("Code", boldFont));
             table.addCell(createHeaderCell("Description", boldFont));
             table.addCell(createHeaderCell("Category", boldFont));
-            table.addCell(createHeaderCell("Amount", boldFont));
+            table.addCell(createHeaderCell("Amount (INR)", boldFont));
 
             if (payslip.getLines() != null) {
                 for (PayslipLine line : payslip.getLines()) {
                     table.addCell(createCell(line.getRuleCode(), tableFont, true));
                     table.addCell(createCell(line.getRuleName(), tableFont, true));
                     table.addCell(createCell(line.getCategory().name(), tableFont, true));
-                    table.addCell(createCell(line.getAmount().toPlainString(), tableFont, true));
+                    table.addCell(createCell("Rs. " + line.getAmount().toPlainString(), tableFont, true));
                 }
             }
             document.add(table);
 
             PdfPTable summary = new PdfPTable(2);
             summary.setWidthPercentage(100);
-            summary.addCell(createCell("Gross Salary:", boldFont, false));
-            summary.addCell(createCell(payslip.getGrossSalary().toPlainString(), boldFont, false));
-            summary.addCell(createCell("Total Deductions:", boldFont, false));
-            summary.addCell(createCell(payslip.getTotalDeductions().toPlainString(), boldFont, false));
-            summary.addCell(createCell("NET SALARY PAYABLE:", headerFont, false));
-            summary.addCell(createCell(payslip.getNetSalary().toPlainString(), headerFont, false));
+            summary.addCell(createCell("Gross Salary (INR):", boldFont, false));
+            summary.addCell(createCell("Rs. " + payslip.getGrossSalary().toPlainString(), boldFont, false));
+            summary.addCell(createCell("Total Deductions (INR):", boldFont, false));
+            summary.addCell(createCell("Rs. " + payslip.getTotalDeductions().toPlainString(), boldFont, false));
+            summary.addCell(createCell("NET SALARY PAYABLE (INR):", headerFont, false));
+            summary.addCell(createCell("Rs. " + payslip.getNetSalary().toPlainString(), headerFont, false));
             document.add(summary);
 
             document.close();

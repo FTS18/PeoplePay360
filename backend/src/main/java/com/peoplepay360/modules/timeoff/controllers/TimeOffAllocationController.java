@@ -46,6 +46,7 @@ public class TimeOffAllocationController {
     private final EmployeeRepository employeeRepository;
 
     @GetMapping
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<PageResponse<AllocationResponse>>> getAllocations(
             @RequestParam(required = false) UUID employeeId,
             @PageableDefault(size = 20) Pageable pageable,

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/utils/cn";
 
@@ -27,7 +27,7 @@ export function PipelineHeader({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center justify-between gap-4 py-3 px-4 rounded-lg border border-(--border) bg-(--card)",
+        "flex flex-wrap items-center justify-between gap-4 py-2.5 px-4 rounded-2xl border border-[var(--border)] dark:border-[var(--border-subtle)] bg-white/95 dark:bg-[var(--card)] shadow-apple-sm backdrop-blur-md",
         className
       )}
     >
@@ -35,7 +35,7 @@ export function PipelineHeader({
       <div className="flex items-center gap-2">{actions}</div>
 
       {/* Right pipeline stages */}
-      <div className="flex items-center gap-1 overflow-x-auto text-xs font-medium">
+      <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-medium py-1">
         {stages.map((stage, idx) => {
           const isCurrent = idx === currentIndex;
           const isPast = idx < currentIndex;
@@ -45,20 +45,20 @@ export function PipelineHeader({
             <React.Fragment key={stage.key}>
               <div
                 className={cn(
-                  "px-3 py-1.5 rounded text-xs font-medium tracking-wide transition-colors",
+                  "px-3 py-1.5 rounded-xl text-xs font-medium tracking-tight transition-all",
                   isCurrent &&
-                    "bg-(--primary) text-(--primary-foreground) font-semibold shadow-xs",
+                    "bg-teal-600 text-white font-semibold shadow-xs shadow-teal-900/30",
                   isPast &&
-                    "bg-(--secondary) text-(--muted-foreground)",
+                    "bg-[var(--muted)] dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-medium",
                   isFuture &&
-                    "text-(--muted-foreground)/60 hover:text-(--muted-foreground)"
+                    "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
                 )}
               >
                 {stage.label}
               </div>
               {idx < stages.length - 1 && (
                 <ChevronRight
-                  className="h-3.5 w-3.5 text-(--muted-foreground)/40 shrink-0"
+                  className="h-3.5 w-3.5 text-stone-300 dark:text-stone-600 shrink-0"
                   strokeWidth={1.5}
                 />
               )}

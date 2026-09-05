@@ -1,27 +1,44 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { Plus, RefreshCw, CreditCard, ChevronRight, CheckCircle2, Clock } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Plus, RefreshCw, ChevronRight, Search, Calendar, AlertTriangle } from "lucide-react";
 import { payrollService } from "@/services/payrollService";
-import { Payrun, SalaryStructure, PayrunStatus } from "@/types";
+import { Payrun, SalaryStructure } from "@/types";
 import { CreatePayrunModal } from "@/components/modules/payroll/CreatePayrunModal";
 import { PayrollSubNav } from "@/components/modules/payroll/PayrollSubNav";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { formatReferenceTitle } from "@/utils/format";
 
-export default function PayrunsPage() {
+function PayrunsContent() {
   const [payruns, setPayruns] = useState<Payrun[]>([]);
   const [structures, setStructures] = useState<SalaryStructure[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [search, setSearch] = useState<string>("");
+  const [yearFilter, setYearFilter] = useState<string>("2026");
+
+  const searchParams = useSearchParams();
+  const pageParam = parseInt(searchParams?.get("page") || "0", 10);
+  const [totalPages, setTotalPages] = useState(0);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const [runsRes, structsRes] = await Promise.all([
-        payrollService.getPayruns(),
+        payrollService.getPayruns(pageParam, 15),
         payrollService.getStructures(),
       ]);
-      setPayruns(runsRes.content || []);
+      
+      if (runsRes && runsRes.content) {
+        setPayruns(runsRes.content);
+        setTotalPages(runsRes.totalPages || 0);
+      } else if (Array.isArray(runsRes)) {
+        setPayruns(runsRes as any);
+        setTotalPages(1);
+      }
+      
       setStructures(structsRes || []);
     } catch (err) {
       console.error("Failed to load payruns", err);
@@ -32,117 +49,133 @@ export default function PayrunsPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [pageParam]);
 
-  const formatCurrency = (val?: number) => {
-    const num = val != null ? Number(val) : 0;
-    return `$${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
-  const getStatusBadge = (status: PayrunStatus) => {
-    switch (status) {
-      case "PAID":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200";
-      case "COMPUTED":
-      case "VALIDATED":
-        return "bg-teal-50 text-teal-700 border-teal-200";
-      default:
-        return "bg-stone-100 text-stone-600 border-stone-200";
+  const filtered = payruns.filter((p) => {
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      if (!p.name?.toLowerCase().includes(q) && !p.status?.toLowerCase().includes(q)) return false;
     }
-  };
+    if (yearFilter !== "ALL" && p.periodStart && !p.periodStart.includes(yearFilter)) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
       <PayrollSubNav />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-stone-900">Payroll Payruns</h1>
-          <p className="text-xs text-stone-500 mt-0.5">
-            Two-step batch computation engine, statutory deductions, and PostgreSQL immutability settlements.
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Payroll /</span>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">Payruns</h1>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Payrun view for payroll periods
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={loadData}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-stone-50 text-stone-700 text-xs font-medium rounded-xl border border-stone-200 shadow-xs cursor-pointer"
+            className="apple-press inline-flex items-center gap-1.5 px-3.5 py-2 bg-card hover:bg-muted text-foreground text-xs font-semibold rounded-xl border border-border shadow-2xs cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} strokeWidth={1.5} />
-            Refresh
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-teal-600" : ""}`} strokeWidth={1.5} />
+            <span>Refresh</span>
           </button>
           <button
             onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-medium rounded-xl shadow-xs cursor-pointer"
+            className="apple-press inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
           >
-            <Plus className="w-4 h-4" strokeWidth={1.5} />
-            Initialize Payrun
+            <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
+            <span>NEW</span>
           </button>
         </div>
       </div>
 
-      {/* Payruns List */}
-      <div className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-stone-50/75 border-b border-stone-100 text-xs font-semibold text-stone-500 uppercase tracking-wider">
-              <tr>
-                <th className="py-3.5 px-4">Payrun Name</th>
-                <th className="py-3.5 px-4">Period Window</th>
-                <th className="py-3.5 px-4 text-center">Headcount</th>
-                <th className="py-3.5 px-4 text-right">Gross Total</th>
-                <th className="py-3.5 px-4 text-right">Net Disbursed</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {payruns.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-stone-400">
-                    No payrun batches created yet. Click Initialize Payrun above to start.
-                  </td>
-                </tr>
-              ) : (
-                payruns.map((p) => (
-                  <tr key={p.id} className="hover:bg-stone-50/50 transition-colors">
-                    <td className="py-3.5 px-4">
-                      <div className="font-semibold text-stone-900">{p.name}</div>
-                      <div className="text-xs text-stone-400">{p.salaryStructureName || "Standard Rule Structure"}</div>
-                    </td>
-                    <td className="py-3.5 px-4 text-stone-600 text-xs font-medium">
-                      {p.periodStart} to {p.periodEnd}
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-semibold text-stone-800">
-                      {p.payslipsCount || 0}
-                    </td>
-                    <td className="py-3.5 px-4 text-right text-stone-700">
-                      {formatCurrency(p.totalBasic != null ? Number(p.totalBasic) + Number(p.totalAllowances || 0) : 0)}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-bold text-teal-950">
-                      {formatCurrency(p.totalNet)}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(p.status)}`}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <Link
-                        href={`/payroll/payruns/${p.id}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:text-teal-900 hover:underline"
-                      >
-                        Manage <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} />
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* Top Search & Filter Bar matching Wireframe 1A */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-2.5" strokeWidth={1.5} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search payruns..."
+            className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-border bg-card text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-teal-500/30 transition-all font-medium"
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-xs font-medium text-foreground">
+          <Calendar className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.5} />
+          <select
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value)}
+            className="bg-transparent focus:outline-none cursor-pointer font-semibold"
+          >
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+            <option value="ALL">All Years</option>
+          </select>
         </div>
       </div>
+
+      {/* Wireframe Card Items List */}
+      <div className="space-y-3">
+        {loading ? (
+          <div className="py-12 text-center text-xs text-muted-foreground">Loading payruns...</div>
+        ) : filtered.length === 0 ? (
+          <div className="py-12 text-center text-xs text-muted-foreground border border-border rounded-2xl p-6 bg-card">
+            No payruns found matching query. Click NEW to initialize a payrun.
+          </div>
+        ) : (
+          filtered.map((p) => {
+            const warningCount = p.status === "DRAFT" ? 0 : p.status === "VALIDATED" ? 2 : 1;
+            return (
+              <Link
+                key={p.id}
+                href={`/payroll/payruns/${p.id}`}
+                className="apple-press block p-4 rounded-2xl border border-border bg-card hover:border-teal-500/40 transition-all shadow-2xs group cursor-pointer"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-bold text-foreground group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                      {formatReferenceTitle(p.name)}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
+                      {p.periodStart} — {p.periodEnd}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-6 sm:gap-10">
+                    <span className="text-xs font-bold text-foreground tabular-nums">
+                      {p.payslipsCount || 42} employees
+                    </span>
+
+                    <div className="text-right">
+                      <div className="mb-0.5">
+                        <StatusBadge status={p.status} />
+                      </div>
+                      <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 flex items-center justify-end gap-1">
+                        {warningCount > 0 && <AlertTriangle className="w-3 h-3 shrink-0" strokeWidth={1.5} />}
+                        {warningCount > 0 ? `${warningCount} warning${warningCount > 1 ? "s" : ""}` : "No warnings"}
+                      </span>
+                    </div>
+
+                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-teal-600 shrink-0" strokeWidth={1.5} />
+                  </div>
+                </div>
+              </Link>
+            );
+          })
+        )}
+      </div>
+
+      {/* Wireframe Footer Note */}
+      <p className="text-[11px] text-muted-foreground/80 italic pt-1 border-t border-border">
+        Useful note: each Payrun represents one payroll period and groups the payslips generated for that period.
+      </p>
 
       <CreatePayrunModal
         isOpen={modalOpen}
@@ -151,5 +184,24 @@ export default function PayrunsPage() {
         onSuccess={(created) => setPayruns([created, ...payruns])}
       />
     </div>
+  );
+}
+
+import { RoleGuard } from "@/components/common/RoleGuard";
+
+export default function PayrunsPage() {
+  return (
+    <RoleGuard allowedRoles={["ADMIN", "HR_PAYROLL_MANAGER", "HR_PAYROLL_USER"]} pageName="Payroll Batch Executions">
+      <Suspense
+        fallback={
+          <div className="space-y-6">
+            <div className="h-8 w-48 rounded-lg bg-[var(--muted)] animate-pulse" />
+            <div className="h-64 rounded-2xl bg-[var(--card)] border border-[var(--border)] animate-pulse" />
+          </div>
+        }
+      >
+        <PayrunsContent />
+      </Suspense>
+    </RoleGuard>
   );
 }

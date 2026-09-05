@@ -35,11 +35,17 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
            "COALESCE(SUM(p.netSalary), 0) AS totalNet " +
            "FROM Payslip p " +
            "JOIN p.contract c " +
-           "WHERE p.status IN ('VALIDATED', 'PAID') " +
+           "WHERE p.status IN ('DRAFT', 'COMPUTED', 'VALIDATED', 'PAID') " +
            "AND p.periodStart >= :sinceDate " +
+           "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
+           "AND (:role IS NULL OR p.employee.role = :role) " +
            "GROUP BY c.department " +
            "ORDER BY totalNet DESC")
-    List<DepartmentCostProjection> findDepartmentCostBreakdown(@Param("sinceDate") LocalDate sinceDate);
+    List<DepartmentCostProjection> findDepartmentCostBreakdown(
+            @Param("sinceDate") LocalDate sinceDate,
+            @Param("department") String department,
+            @Param("role") com.peoplepay360.common.enums.Role role
+    );
 
     @Query("SELECT " +
            "p.periodStart AS periodStart, " +
@@ -47,17 +53,50 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
            "COALESCE(SUM(p.grossSalary), 0) AS totalGross, " +
            "COALESCE(SUM(p.netSalary), 0) AS totalNet " +
            "FROM Payslip p " +
-           "WHERE p.status IN ('VALIDATED', 'PAID') " +
+           "JOIN p.contract c " +
+           "WHERE p.status IN ('DRAFT', 'COMPUTED', 'VALIDATED', 'PAID') " +
            "AND p.periodStart >= :sinceDate " +
+           "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
+           "AND (:role IS NULL OR p.employee.role = :role) " +
            "GROUP BY p.periodStart " +
            "ORDER BY p.periodStart ASC")
-    List<MonthlyPayrollTrendProjection> findMonthlyPayrollTrends(@Param("sinceDate") LocalDate sinceDate);
+    List<MonthlyPayrollTrendProjection> findMonthlyPayrollTrends(
+            @Param("sinceDate") LocalDate sinceDate,
+            @Param("department") String department,
+            @Param("role") com.peoplepay360.common.enums.Role role
+    );
 
     @Query("SELECT COALESCE(SUM(p.netSalary), 0) FROM Payslip p " +
-           "WHERE p.status IN ('VALIDATED', 'PAID') AND p.periodStart >= :sinceDate")
-    BigDecimal sumTotalNetSalaryPaid(@Param("sinceDate") LocalDate sinceDate);
+           "JOIN p.contract c " +
+           "WHERE p.status IN ('DRAFT', 'COMPUTED', 'VALIDATED', 'PAID') " +
+           "AND p.periodStart >= :sinceDate " +
+           "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
+           "AND (:role IS NULL OR p.employee.role = :role)")
+    BigDecimal sumTotalNetSalaryPaid(
+            @Param("sinceDate") LocalDate sinceDate,
+            @Param("department") String department,
+            @Param("role") com.peoplepay360.common.enums.Role role
+    );
 
     @Query("SELECT COALESCE(AVG(p.netSalary), 0) FROM Payslip p " +
-           "WHERE p.status IN ('VALIDATED', 'PAID') AND p.periodStart >= :sinceDate")
-    BigDecimal calculateAverageNetSalary(@Param("sinceDate") LocalDate sinceDate);
+           "JOIN p.contract c " +
+           "WHERE p.status IN ('DRAFT', 'COMPUTED', 'VALIDATED', 'PAID') " +
+           "AND p.periodStart >= :sinceDate " +
+           "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
+           "AND (:role IS NULL OR p.employee.role = :role)")
+    BigDecimal calculateAverageNetSalary(
+            @Param("sinceDate") LocalDate sinceDate,
+            @Param("department") String department,
+            @Param("role") com.peoplepay360.common.enums.Role role
+    );
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query(value = "REFRESH MATERIALIZED VIEW CONCURRENTLY mv_department_payroll_cost", nativeQuery = true)
+    void refreshDepartmentCostView();
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query(value = "REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_payroll_summary", nativeQuery = true)
+    void refreshMonthlySummaryView();
 }

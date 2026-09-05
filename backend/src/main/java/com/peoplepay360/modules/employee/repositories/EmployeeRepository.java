@@ -41,4 +41,19 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
            "LOWER(e.email) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :query, '%'))")
     Page<Employee> searchEmployees(@Param("query") String query, Pageable pageable);
+
+    Page<Employee> findByRole(com.peoplepay360.common.enums.Role role, Pageable pageable);
+
+    long countByRole(com.peoplepay360.common.enums.Role role);
+
+    @Query("SELECT e FROM Employee e WHERE e.role = :role AND (" +
+           "LOWER(e.firstName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(e.lastName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(e.email) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :query, '%')))")
+    Page<Employee> searchByRoleAndQuery(
+        @Param("role") com.peoplepay360.common.enums.Role role,
+        @Param("query") String query,
+        Pageable pageable
+    );
 }

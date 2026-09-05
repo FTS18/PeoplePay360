@@ -68,6 +68,9 @@ BEGIN
     IF OLD.status IN ('PAID', 'finalized', 'VALIDATED') THEN
         RAISE EXCEPTION 'ImmutableRecordError: Finalized or paid payslips cannot be modified or deleted.';
     END IF;
+    IF (TG_OP = 'DELETE') THEN
+        RETURN OLD;
+    END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

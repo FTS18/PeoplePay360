@@ -1,9 +1,11 @@
 "use client";
 
-import React from "react";
-import { X, Download, Building2, CheckCircle2, Shield } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { X, Download, Play, Printer } from "lucide-react";
 import { Payslip } from "@/types";
 import { payrollService } from "@/services/payrollService";
+import { formatCurrency } from "@/utils/format";
 
 interface PayslipDetailModalProps {
   payslip: Payslip | null;
@@ -11,131 +13,163 @@ interface PayslipDetailModalProps {
 }
 
 export function PayslipDetailModal({ payslip, onClose }: PayslipDetailModalProps) {
-  if (!payslip) return null;
+  const [mounted, setMounted] = useState(false);
 
-  const formatMoney = (val?: number) => {
-    const num = val != null ? Number(val) : 0;
-    return `$${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+  useEffect(() => {
+    setMounted(true);
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
 
-  const earnings = payslip.lines?.filter(
-    (l) => l.category === "BASIC" || l.category === "ALLOWANCE" || l.category === "GROSS"
-  ) || [];
+  if (!payslip || !mounted) return null;
 
-  const deductions = payslip.lines?.filter((l) => l.category === "DEDUCTION") || [];
+  const lines = payslip.lines || [];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 backdrop-blur-xs p-4">
-      <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-stone-200">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-stone-100">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-6 overflow-y-auto bg-stone-950/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="fixed inset-0 -z-10" onClick={onClose} aria-hidden="true" />
+      <div className="apple-glass-modal apple-specular rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-apple-modal border border-border bg-card max-h-[90vh] my-auto overflow-y-auto space-y-6 text-foreground animate-in zoom-in-95 duration-200">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between pb-4 border-b border-border">
           <div>
-            <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">
-              Itemized Settlement Slip
-            </span>
-            <h3 className="text-lg font-bold text-stone-900 mt-0.5">
-              {payslip.employeeName || "Employee Payslip"}
-            </h3>
-            <p className="text-xs text-stone-500">
-              Code: {payslip.employeeCode} | Period: {payslip.periodStart} to {payslip.periodEnd}
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Payslip /</span>
+              <h2 className="text-base font-bold text-foreground tracking-tight">
+                {payslip.employeeName || "Employee"} / {payslip.periodStart ? new Date(payslip.periodStart).toLocaleString('default', { month: 'long', year: 'numeric' }) : "Period"}
+              </h2>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Detailed salary computation for one employee</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100"
-          >
-            <X className="w-5 h-5" strokeWidth={1.5} />
-          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.open(payrollService.getPdfUrl(payslip.id), '_blank')}
+              className="apple-press inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-teal-600 dark:bg-teal-500 text-white hover:bg-teal-700 transition-colors shadow-2xs cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" strokeWidth={1.5} />
+              PRINT PAYSLIP
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors apple-press cursor-pointer"
+            >
+              <X className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+          </div>
         </div>
 
-        {/* Overview Row */}
-        <div className="grid grid-cols-3 gap-3 my-4 bg-stone-50 p-3 rounded-xl border border-stone-100 text-xs">
-          <div>
-            <span className="text-stone-500 block">Worked Days</span>
-            <span className="font-semibold text-stone-900">{payslip.workedDays} Days</span>
-          </div>
-          <div>
-            <span className="text-stone-500 block">Basic Contract Wage</span>
-            <span className="font-semibold text-stone-900">{formatMoney(payslip.basicWage)}</span>
-          </div>
-          <div>
-            <span className="text-stone-500 block">Payment Status</span>
-            <span className="font-semibold text-teal-700">{payslip.status}</span>
-          </div>
-        </div>
-
-        {/* Two-Column Breakdown */}
-        <div className="grid grid-cols-2 gap-4 text-xs">
-          {/* Earnings */}
-          <div className="border border-stone-100 rounded-xl p-3 bg-stone-50/50">
-            <h4 className="font-semibold text-stone-700 mb-2 pb-1 border-b border-stone-200">
-              Earnings & Allowances
-            </h4>
-            <div className="space-y-1.5">
-              {earnings.length > 0 ? (
-                earnings.map((line) => (
-                  <div key={line.id} className="flex justify-between items-center text-stone-600">
-                    <span>{line.ruleName}</span>
-                    <span className="font-medium text-stone-900">{formatMoney(line.amount)}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="flex justify-between text-stone-600">
-                  <span>Gross Salary</span>
-                  <span className="font-medium text-stone-900">{formatMoney(payslip.grossSalary)}</span>
-                </div>
-              )}
+        {/* 2-Column Fields Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-xs">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-muted/20">
+              <span className="text-muted-foreground font-medium">Employee</span>
+              <span className="font-bold text-foreground">{payslip.employeeName}</span>
             </div>
-            <div className="mt-3 pt-2 border-t border-stone-200 flex justify-between font-bold text-stone-900">
-              <span>Total Gross</span>
-              <span>{formatMoney(payslip.grossSalary)}</span>
+
+            <div className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-muted/20">
+              <span className="text-muted-foreground font-medium">Salary Structure</span>
+              <span className="font-semibold text-foreground">{payslip.contractReference || "Regular Salary"}</span>
+            </div>
+
+            <div className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-muted/20">
+              <span className="text-muted-foreground font-medium">Pay Run</span>
+              <span className="font-semibold text-foreground">
+                {payslip.periodStart ? new Date(payslip.periodStart).toLocaleString('default', { month: 'long', year: 'numeric' }) : "Monthly Payrun"}
+              </span>
             </div>
           </div>
 
-          {/* Deductions */}
-          <div className="border border-stone-100 rounded-xl p-3 bg-stone-50/50">
-            <h4 className="font-semibold text-stone-700 mb-2 pb-1 border-b border-stone-200">
-              Statutory Deductions
-            </h4>
-            <div className="space-y-1.5">
-              {deductions.length > 0 ? (
-                deductions.map((line) => (
-                  <div key={line.id} className="flex justify-between items-center text-stone-600">
-                    <span>{line.ruleName}</span>
-                    <span className="font-medium text-amber-700">-{formatMoney(line.amount)}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="flex justify-between text-stone-600">
-                  <span>Standard Deductions</span>
-                  <span className="font-medium text-amber-700">-{formatMoney(payslip.totalDeductions)}</span>
-                </div>
-              )}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-muted/20">
+              <span className="text-muted-foreground font-medium">Period</span>
+              <span className="font-semibold text-foreground tabular-nums">{payslip.periodStart} — {payslip.periodEnd}</span>
             </div>
-            <div className="mt-3 pt-2 border-t border-stone-200 flex justify-between font-bold text-amber-800">
-              <span>Total Deductions</span>
-              <span>-{formatMoney(payslip.totalDeductions)}</span>
+
+            <div className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-muted/20">
+              <span className="text-muted-foreground font-medium">Status</span>
+              <span className="font-bold text-teal-600 dark:text-teal-400">Done</span>
+            </div>
+
+            <div className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-muted/20">
+              <span className="text-muted-foreground font-medium">Worked Days</span>
+              <span className="font-bold text-foreground tabular-nums">{payslip.workedDays || 22}</span>
             </div>
           </div>
         </div>
 
-        {/* Net Salary Highlight */}
-        <div className="mt-4 p-4 rounded-xl bg-teal-950 text-white flex items-center justify-between">
-          <div>
-            <span className="text-xs text-teal-300 block font-medium">Net Disbursed Payable</span>
-            <div className="text-2xl font-bold">{formatMoney(payslip.netSalary)}</div>
+        {/* Salary Computation Table */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-foreground tracking-tight">Salary Computation</h3>
+          <div className="border border-border rounded-2xl overflow-hidden bg-card shadow-2xs">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-muted/80 backdrop-blur-md border-b border-border text-[11px] font-semibold text-muted-foreground">
+                <tr>
+                  <th className="p-2.5">Rule</th>
+                  <th className="p-2.5">Category</th>
+                  <th className="p-2.5 text-right">Amount</th>
+                  <th className="p-2.5 text-right">Code</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60 font-medium">
+                {lines.length > 0 ? (
+                  lines.map((l) => (
+                    <tr key={l.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="p-2.5 font-semibold text-foreground">{l.ruleName}</td>
+                      <td className="p-2.5 text-muted-foreground">{l.category}</td>
+                      <td className={`p-2.5 text-right tabular-nums font-bold ${
+                        l.category === "DEDUCTION" ? "text-rose-600 dark:text-rose-400" : "text-foreground"
+                      }`}>
+                        {l.category === "DEDUCTION" ? `-${formatCurrency(l.amount)}` : formatCurrency(l.amount)}
+                      </td>
+                      <td className="p-2.5 text-right font-mono text-[11px] text-muted-foreground">{l.ruleCode}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <>
+                    <tr className="hover:bg-muted/30 transition-colors">
+                      <td className="p-2.5 font-semibold text-foreground">Basic Salary</td>
+                      <td className="p-2.5 text-muted-foreground">Basic</td>
+                      <td className="p-2.5 text-right tabular-nums font-bold text-foreground">{formatCurrency(payslip.basicWage)}</td>
+                      <td className="p-2.5 text-right font-mono text-[11px] text-muted-foreground">BASIC</td>
+                    </tr>
+                    <tr className="hover:bg-muted/30 transition-colors">
+                      <td className="p-2.5 font-semibold text-foreground">Gross Salary</td>
+                      <td className="p-2.5 text-muted-foreground">Gross</td>
+                      <td className="p-2.5 text-right tabular-nums font-bold text-foreground">{formatCurrency(payslip.grossSalary)}</td>
+                      <td className="p-2.5 text-right font-mono text-[11px] text-muted-foreground">GROSS</td>
+                    </tr>
+                    <tr className="hover:bg-muted/30 transition-colors">
+                      <td className="p-2.5 font-semibold text-foreground">Provident Fund</td>
+                      <td className="p-2.5 text-muted-foreground">Deduction</td>
+                      <td className="p-2.5 text-right tabular-nums font-bold text-rose-600 dark:text-rose-400">-{formatCurrency(payslip.totalDeductions)}</td>
+                      <td className="p-2.5 text-right font-mono text-[11px] text-muted-foreground font-semibold">PF</td>
+                    </tr>
+                    <tr className="hover:bg-muted/30 transition-colors bg-teal-500/10">
+                      <td className="p-2.5 font-bold text-teal-800 dark:text-teal-300">Net Salary</td>
+                      <td className="p-2.5 text-teal-800 dark:text-teal-300 font-semibold">Net</td>
+                      <td className="p-2.5 text-right tabular-nums font-extrabold text-teal-700 dark:text-teal-300 text-sm">{formatCurrency(payslip.netSalary)}</td>
+                      <td className="p-2.5 text-right font-mono text-[11px] text-teal-800 dark:text-teal-300 font-bold">NET</td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
           </div>
-          <a
-            href={payrollService.getPdfUrl(payslip.id)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" strokeWidth={1.5} />
-            Download PDF
-          </a>
         </div>
+
+        {/* Footer Note matching Wireframe 2B */}
+        <p className="text-[11px] text-muted-foreground/80 italic pt-1 border-t border-border">
+          Useful note: the Print action generates the employee payslip as PDF; that PDF can be sent from the parent Payrun.
+        </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
@@ -39,32 +39,25 @@ export function EmployeeKanban({ employees }: EmployeeKanbanProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs text-(--muted-foreground)">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="font-medium">Group by:</span>
-          <div className="inline-flex rounded-lg border border-(--border) bg-(--card) p-0.5">
+          {/* Apple Segmented Switcher */}
+          <div className="apple-segmented-track border border-stone-300/70 dark:border-stone-700/70 shadow-2xs">
             <button
               onClick={() => setGroupBy("department")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                groupBy === "department"
-                  ? "bg-(--secondary) text-(--foreground) shadow-xs"
-                  : "text-(--muted-foreground) hover:text-(--foreground)"
-              }`}
+              className={`apple-press apple-segmented-item ${groupBy === "department" ? "active" : ""}`}
             >
               Department
             </button>
             <button
               onClick={() => setGroupBy("status")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                groupBy === "status"
-                  ? "bg-(--secondary) text-(--foreground) shadow-xs"
-                  : "text-(--muted-foreground) hover:text-(--foreground)"
-              }`}
+              className={`apple-press apple-segmented-item ${groupBy === "status" ? "active" : ""}`}
             >
               Status
             </button>
           </div>
         </div>
-        <span className="text-xs text-(--muted-foreground)">
+        <span className="text-xs text-muted-foreground font-medium">
           {employees.length} employees across {lanes.length} lanes
         </span>
       </div>
@@ -73,23 +66,23 @@ export function EmployeeKanban({ employees }: EmployeeKanbanProps) {
         {lanes.map((lane) => (
           <div
             key={lane.key}
-            className="flex w-72 min-w-[288px] shrink-0 flex-col rounded-xl border border-(--border) bg-(--card)/50 p-3 shadow-xs"
+            className="flex w-72 min-w-[288px] shrink-0 flex-col rounded-2xl border border-[var(--border)] dark:border-[var(--border-subtle)] bg-stone-100/50 dark:bg-stone-900/30 p-3.5 shadow-2xs"
           >
-            <div className="mb-3 flex items-center justify-between border-b border-(--border)/60 pb-2.5">
+            <div className="mb-3 flex items-center justify-between border-b border-[var(--border)] dark:border-[var(--border-subtle)] pb-2.5">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-(--primary)" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-(--foreground)">
+                <span className="h-2 w-2 rounded-full bg-teal-600 dark:bg-teal-400" />
+                <h3 className="text-xs font-semibold tracking-tight text-foreground">
                   {lane.title}
                 </h3>
               </div>
-              <span className="rounded-full bg-(--secondary) px-2 py-0.5 text-[11px] font-semibold text-(--secondary-foreground)">
+              <span className="rounded-full bg-stone-200/80 dark:bg-stone-800 px-2.5 py-0.5 text-[11px] font-semibold text-foreground shadow-2xs">
                 {lane.items.length}
               </span>
             </div>
 
             <div className="flex flex-1 flex-col gap-2.5">
               {lane.items.length === 0 ? (
-                <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-(--border) p-4 text-center text-xs text-(--muted-foreground)">
+                <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-stone-200 dark:border-[var(--border-subtle)] p-4 text-center text-xs text-muted-foreground">
                   No employees in this lane
                 </div>
               ) : (
@@ -98,21 +91,21 @@ export function EmployeeKanban({ employees }: EmployeeKanbanProps) {
                   return (
                     <div
                       key={emp.id}
-                      className="group rounded-lg border border-(--border) bg-(--card) p-3 shadow-xs transition-all hover:border-(--border)/80 hover:shadow-sm"
+                      className="group rounded-xl border border-[var(--border)] dark:border-[var(--border-subtle)] bg-card p-3.5 shadow-apple-sm transition-all hover:shadow-apple-md hover:border-stone-300 dark:hover:border-stone-700"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-(--secondary) text-xs font-bold text-(--foreground)">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--muted)] dark:bg-stone-800 border border-[var(--border)] dark:border-stone-700/80 text-xs font-bold text-foreground shadow-2xs">
                             {initials}
                           </div>
                           <div>
                             <Link
                               href={ROUTES.EMPLOYEES.DETAIL(emp.id)}
-                              className="text-xs font-semibold text-(--foreground) group-hover:text-(--primary) group-hover:underline"
+                              className="text-xs font-semibold text-foreground group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors"
                             >
                               {emp.firstName} {emp.lastName}
                             </Link>
-                            <p className="text-[11px] text-(--muted-foreground) line-clamp-1">
+                            <p className="text-[11px] text-muted-foreground line-clamp-1">
                               {emp.jobPosition}
                             </p>
                           </div>
@@ -120,25 +113,25 @@ export function EmployeeKanban({ employees }: EmployeeKanbanProps) {
                         <StatusBadge status={emp.status} />
                       </div>
 
-                      <div className="mt-3 space-y-1.5 border-t border-(--border)/60 pt-2 text-[11px] text-(--muted-foreground)">
+                      <div className="mt-3 space-y-1.5 border-t border-stone-200/70 dark:border-stone-800/80 pt-2 text-[11px] text-muted-foreground">
                         <div className="flex items-center justify-between">
-                          <span>{emp.employeeCode}</span>
+                          <span className="tabular-nums">{emp.employeeCode}</span>
                           {groupBy === "status" && (
-                            <span className="font-medium text-(--foreground)">
+                            <span className="font-medium text-foreground">
                               {emp.department}
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-1.5 truncate">
-                          <Mail className="h-3 w-3 shrink-0" strokeWidth={1.5} />
-                          <span className="truncate">{emp.workEmail}</span>
+                          <Mail className="h-3 w-3 shrink-0 text-stone-400" strokeWidth={1.5} />
+                          <span className="truncate">{emp.email}</span>
                         </div>
                       </div>
 
-                      <div className="mt-2.5 flex items-center justify-end border-t border-(--border)/40 pt-2">
+                      <div className="mt-2.5 flex items-center justify-end border-t border-stone-200/60 dark:border-stone-800/60 pt-2">
                         <Link
                           href={ROUTES.EMPLOYEES.DETAIL(emp.id)}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-(--primary) hover:underline"
+                          className="apple-press inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 transition-colors"
                         >
                           View Profile
                           <ChevronRight className="h-3 w-3" strokeWidth={1.5} />
@@ -155,3 +148,4 @@ export function EmployeeKanban({ employees }: EmployeeKanbanProps) {
     </div>
   );
 }
+

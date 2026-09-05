@@ -49,6 +49,7 @@ public class PayslipResponse {
     @AllArgsConstructor
     @Builder
     public static class PayslipLineResponse {
+        private UUID id;
         private String ruleCode;
         private String ruleName;
         private SalaryRuleCategory category;
@@ -58,6 +59,7 @@ public class PayslipResponse {
 
         public static PayslipLineResponse from(PayslipLine line) {
             return PayslipLineResponse.builder()
+                    .id(line.getId())
                     .ruleCode(line.getRuleCode())
                     .ruleName(line.getRuleName())
                     .category(line.getCategory())

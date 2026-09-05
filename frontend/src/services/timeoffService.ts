@@ -21,6 +21,12 @@ export interface CreateAllocationPayload {
 export const timeoffService = {
   getTypes: () => apiClient.get<TimeOffType[]>("/timeoff/types"),
 
+  createType: (payload: Partial<TimeOffType>) =>
+    apiClient.post<TimeOffType>("/timeoff/types", payload),
+
+  updateType: (id: string, payload: Partial<TimeOffType>) =>
+    apiClient.put<TimeOffType>(`/timeoff/types/${id}`, payload),
+
   getBalances: (employeeId: string, asOfDate?: string) => {
     const params = new URLSearchParams({ employeeId });
     if (asOfDate) params.append("asOfDate", asOfDate);

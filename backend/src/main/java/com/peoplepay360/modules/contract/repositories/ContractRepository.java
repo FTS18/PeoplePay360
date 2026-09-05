@@ -4,6 +4,7 @@ import com.peoplepay360.common.enums.ContractStatus;
 import com.peoplepay360.modules.contract.entities.Contract;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,8 +18,18 @@ import java.util.UUID;
 @Repository
 public interface ContractRepository extends JpaRepository<Contract, UUID> {
 
+    @EntityGraph(attributePaths = {"employee", "salaryStructure", "workingSchedule"})
     List<Contract> findByEmployeeIdOrderByStartDateDesc(UUID employeeId);
 
+    @Override
+    @EntityGraph(attributePaths = {"employee", "salaryStructure", "workingSchedule"})
+    List<Contract> findAll();
+
+    @Override
+    @EntityGraph(attributePaths = {"employee", "salaryStructure", "workingSchedule"})
+    Optional<Contract> findById(UUID id);
+
+    @EntityGraph(attributePaths = {"employee", "salaryStructure", "workingSchedule"})
     Page<Contract> findByStatus(ContractStatus status, Pageable pageable);
 
     @Query("SELECT c FROM Contract c " +

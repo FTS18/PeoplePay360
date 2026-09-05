@@ -16,6 +16,7 @@ import com.peoplepay360.modules.payroll.services.PayrollService;
 import com.peoplepay360.security.SecurityUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -52,7 +54,8 @@ public class PayrunController {
     private final EmailDispatchService emailDispatchService;
 
     @GetMapping("/payruns")
-    @PreAuthorize("hasAnyRole('HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN')")
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<PageResponse<PayrunResponse>>> getPayruns(
             @PageableDefault(size = 20) Pageable pageable
     ) {
@@ -61,7 +64,8 @@ public class PayrunController {
     }
 
     @GetMapping("/payruns/{id}")
-    @PreAuthorize("hasAnyRole('HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN')")
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<PayrunResponse>> getPayrunById(@PathVariable UUID id) {
         Payrun payrun = payrunRepository.findWithPayslipsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payrun", "id", id));
@@ -83,6 +87,7 @@ public class PayrunController {
                 .body(ApiResponse.ok("Payrun draft initialized", PayrunResponse.from(payrun)));
     }
 
+    @CacheEvict(value = {"dashboardSummary", "monthlyTrends", "departmentCosts"}, allEntries = true)
     @PostMapping("/payruns/{id}/compute")
     @PreAuthorize("hasAnyRole('HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<PayrunResponse>> computeBatch(
@@ -101,6 +106,7 @@ public class PayrunController {
         return ResponseEntity.ok(ApiResponse.ok(warnings));
     }
 
+    @CacheEvict(value = {"dashboardSummary", "monthlyTrends", "departmentCosts"}, allEntries = true)
     @PostMapping("/payruns/{id}/pay")
     @PreAuthorize("hasAnyRole('HR_PAYROLL_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<PayrunResponse>> markAsPaid(@PathVariable UUID id) {
@@ -110,6 +116,7 @@ public class PayrunController {
 
     // Employees see only their own payslips; HR roles see all (with optional employeeId filter).
     @GetMapping("/payslips")
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<PageResponse<PayslipResponse>>> getPayslips(
             @org.springframework.web.bind.annotation.RequestParam(required = false) UUID payrunId,
             @org.springframework.web.bind.annotation.RequestParam(required = false) UUID employeeId,
@@ -137,6 +144,7 @@ public class PayrunController {
     }
 
     @GetMapping("/payslips/{id}")
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<PayslipResponse>> getPayslipDetails(
             @PathVariable UUID id,
             @AuthenticationPrincipal SecurityUser currentUser
@@ -178,11 +186,25 @@ public class PayrunController {
 
     @PostMapping("/payruns/{id}/send-payslips")
     @PreAuthorize("hasAnyRole('HR_PAYROLL_MANAGER', 'ADMIN')")
-    public ResponseEntity<ApiResponse<String>> sendPayrunPayslips(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<EmailDispatchService.DispatchResult>> sendPayrunPayslips(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "true") boolean async
+    ) {
         Payrun payrun = payrunRepository.findWithPayslipsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payrun", "id", id));
 
-        emailDispatchService.dispatchBulkPayrunEmails(payrun);
-        return ResponseEntity.ok(ApiResponse.ok("Payslip email delivery initiated for " + payrun.getPayslips().size() + " employees"));
+        if (async) {
+            emailDispatchService.dispatchBulkPayrunEmailsAsync(payrun);
+            int total = payrun.getPayslips() != null ? payrun.getPayslips().size() : 0;
+            String msg = String.format("Bulk payslip email dispatch queued asynchronously in background worker pool for %d employees", total);
+            return ResponseEntity.status(org.springframework.http.HttpStatus.ACCEPTED)
+                    .body(ApiResponse.ok(msg, new EmailDispatchService.DispatchResult(0, 0, total)));
+        }
+
+        EmailDispatchService.DispatchResult result = emailDispatchService.dispatchBulkPayrunEmails(payrun);
+        String msg = String.format("Payslip email dispatch completed: %d succeeded, %d failed out of %d total employees",
+                result.successCount(), result.failureCount(), result.totalCount());
+
+        return ResponseEntity.ok(ApiResponse.ok(msg, result));
     }
 }

@@ -20,17 +20,20 @@ public class JwtTokenProvider {
 
     private final SecretKey key;
     private final long expirationMs;
+    private final long refreshTokenExpirationMs;
 
     public JwtTokenProvider(
             @Value("${app.jwt.secret:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}") String secret,
-            @Value("${app.jwt.access-token-expiration-ms:86400000}") long expirationMs
+            @Value("${app.jwt.access-token-expiration-ms:900000}") long expirationMs,
+            @Value("${app.jwt.refresh-token-expiration-ms:604800000}") long refreshTokenExpirationMs
     ) {
         byte[] keyBytes = Decoders.BASE64.decode(secret);
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.expirationMs = expirationMs;
+        this.refreshTokenExpirationMs = refreshTokenExpirationMs;
     }
 
-    public String generateToken(String email, UUID userId, String role) {
+    public String generateAccessToken(String email, UUID userId, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationMs);
 
@@ -38,6 +41,21 @@ public class JwtTokenProvider {
                 .subject(email)
                 .claim("userId", userId.toString())
                 .claim("role", role)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(key)
+                .compact();
+    }
+
+    public String generateRefreshToken(String email, UUID userId, String role) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + refreshTokenExpirationMs);
+
+        return Jwts.builder()
+                .subject(email)
+                .claim("userId", userId.toString())
+                .claim("role", role)
+                .claim("type", "REFRESH")
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(key)

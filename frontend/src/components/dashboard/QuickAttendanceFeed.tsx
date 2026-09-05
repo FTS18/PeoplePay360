@@ -1,8 +1,11 @@
 import React from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { Table, Column } from "@/components/common/Table";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { EmployeeCell } from "@/components/common/EmployeeCell";
 import { ROUTES } from "@/config/routes";
+import { formatTime } from "@/utils/format";
 
 interface AttendanceRecord {
   id: string;
@@ -18,53 +21,60 @@ interface QuickAttendanceFeedProps {
 }
 
 export function QuickAttendanceFeed({ records }: QuickAttendanceFeedProps) {
-  return (
-    <div className="rounded-2xl border border-[oklch(92%_0.005_240)] bg-white overflow-hidden shadow-xs">
-      <div className="flex items-center justify-between p-5 border-b border-[oklch(92%_0.005_240)]">
-        <div>
-          <h3 className="text-sm font-bold text-[oklch(20%_0.02_240)]">Today&apos;s Attendance</h3>
-          <p className="text-xs text-[oklch(50%_0.02_240)]">Live workforce check-ins</p>
-        </div>
-        <Link
-          href={ROUTES.ATTENDANCE}
-          className="text-xs font-semibold text-[oklch(35%_0.08_195)] hover:text-[oklch(20%_0.04_195)] hover:underline flex items-center gap-1"
-        >
-          View all
-          <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-        </Link>
-      </div>
+  const columns: Column<AttendanceRecord>[] = [
+    {
+      header: "Employee",
+      width: "40%",
+      render: (r) => <EmployeeCell name={r.name} subtext={r.employeeCode} />,
+    },
+    {
+      header: "Check In",
+      width: "20%",
+      render: (r) => (
+        <span className="tabular-nums text-[var(--foreground)] font-medium" suppressHydrationWarning>
+          {formatTime(r.checkIn)}
+        </span>
+      ),
+    },
+    {
+      header: "Check Out",
+      width: "20%",
+      render: (r) => (
+        <span className="tabular-nums text-[var(--muted-foreground)]" suppressHydrationWarning>
+          {formatTime(r.checkOut)}
+        </span>
+      ),
+    },
+    {
+      header: "Status",
+      width: "20%",
+      align: "center",
+      render: (r) => <StatusBadge status={r.status} />,
+    },
+  ];
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-[oklch(98%_0.005_240)] text-[oklch(50%_0.02_240)] border-b border-[oklch(92%_0.005_240)]">
-            <tr>
-              <th className="py-3 px-5 font-semibold uppercase tracking-wider text-[10px]">Employee</th>
-              <th className="py-3 px-5 font-semibold uppercase tracking-wider text-[10px]">Check In</th>
-              <th className="py-3 px-5 font-semibold uppercase tracking-wider text-[10px]">Check Out</th>
-              <th className="py-3 px-5 font-semibold uppercase tracking-wider text-[10px] text-center">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[oklch(94%_0.005_240)]">
-            {records.map((r) => (
-              <tr key={r.id} className="hover:bg-[oklch(98.5%_0.005_240)] transition-colors">
-                <td className="py-3.5 px-5">
-                  <div className="font-semibold text-[oklch(20%_0.02_240)]">{r.name}</div>
-                  <div className="text-[11px] text-[oklch(50%_0.02_240)]">
-                    {r.employeeCode}
-                  </div>
-                </td>
-                <td className="py-3.5 px-5 font-medium text-[oklch(30%_0.02_240)]">{r.checkIn}</td>
-                <td className="py-3.5 px-5 text-[oklch(50%_0.02_240)]">
-                  {r.checkOut || "-"}
-                </td>
-                <td className="py-3.5 px-5 text-center">
-                  <StatusBadge status={r.status} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+  return (
+    <Table
+      header={
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--foreground)]">Today&apos;s Attendance</h3>
+            <p className="text-xs text-[var(--muted-foreground)]">Live workforce check-ins</p>
+          </div>
+          <Link
+            href={ROUTES.ATTENDANCE}
+            className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 flex items-center gap-1 transition-colors apple-press"
+          >
+            View all
+            <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+          </Link>
+        </div>
+      }
+      columns={columns}
+      data={records}
+      minWidth="min-w-[500px]"
+      emptyMessage="No attendance records logged for today yet."
+      emptySubtitle="Employees will appear here once check-in transactions are registered."
+    />
   );
 }

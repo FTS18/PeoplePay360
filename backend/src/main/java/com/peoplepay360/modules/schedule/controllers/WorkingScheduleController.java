@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,6 +33,7 @@ public class WorkingScheduleController {
     private final WorkingScheduleService scheduleService;
 
     @GetMapping
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<List<ScheduleResponse>>> getAllSchedules() {
         List<WorkingSchedule> schedules = scheduleService.getAllSchedules();
         List<ScheduleResponse> responses = schedules.stream().map(ScheduleResponse::from).toList();
@@ -39,6 +41,7 @@ public class WorkingScheduleController {
     }
 
     @GetMapping("/{id}")
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<ScheduleResponse>> getScheduleById(@PathVariable UUID id) {
         WorkingSchedule schedule = scheduleService.getScheduleById(id);
         return ResponseEntity.ok(ApiResponse.ok(ScheduleResponse.from(schedule)));

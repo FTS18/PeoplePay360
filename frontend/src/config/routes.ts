@@ -21,5 +21,14 @@ export const ROUTES = {
     STRUCTURES: "/payroll/structures",
   },
   SCHEDULES: "/schedules",
+  USERS: "/users",
+  SETTINGS: "/settings",
   LOGIN: "/login",
+  SIGNUP: "/signup",
+  LEGAL: {
+    PRIVACY: "/privacy",
+    TERMS: "/terms",
+    SECURITY: "/security",
+    COOKIES: "/cookies",
+  },
 } as const;

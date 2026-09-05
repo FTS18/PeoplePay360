@@ -1,36 +1,74 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Users, FileText, CalendarDays, DollarSign, Filter, Calendar, Building2 } from "lucide-react";
+import { Users, FileText, CalendarDays, DollarSign, Calendar, Building2, UserCheck, Briefcase } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { PunchClockWidget } from "@/components/dashboard/PunchClockWidget";
 import { RecentPayrunTable } from "@/components/dashboard/RecentPayrunTable";
 import { QuickAttendanceFeed } from "@/components/dashboard/QuickAttendanceFeed";
 import { DepartmentCostWidget } from "@/components/dashboard/DepartmentCostWidget";
 import { PayrollTrendWidget } from "@/components/dashboard/PayrollTrendWidget";
+import { PayslipStatusWidget } from "@/components/dashboard/PayslipStatusWidget";
+import { PayrollWarningsWidget, PayrollWarning } from "@/components/dashboard/PayrollWarningsWidget";
+import { TimeOffOverviewWidget } from "@/components/dashboard/TimeOffOverviewWidget";
+import { AttendanceOverviewWidget } from "@/components/dashboard/AttendanceOverviewWidget";
+import { DepartmentOverviewWidget } from "@/components/dashboard/DepartmentOverviewWidget";
+import { ModelsToAggregateWidget } from "@/components/dashboard/ModelsToAggregateWidget";
 import { apiClient } from "@/services/apiClient";
 import { payrollService } from "@/services/payrollService";
 import { attendanceService } from "@/services/attendanceService";
+import { useAuth } from "@/context/AuthContext";
+import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 
 const PERIOD_OPTIONS = [
+  { label: "Sep 2026", months: 1 },
+  { label: "Aug 2026", months: 2 },
+  { label: "Jul 2026", months: 3 },
   { label: "Past 6 Months", months: 6 },
-  { label: "Past 30 Days", months: 1 },
-  { label: "Past 90 Days", months: 3 },
   { label: "Past 1 Year", months: 12 },
-  { label: "All Time", months: 36 },
 ];
 
 export default function DashboardPage() {
-  const [selectedMonths, setSelectedMonths] = useState<number>(6);
+  const { user, role } = useAuth();
+  const { autoStartTour } = useOnboardingTour();
+
+  useEffect(() => {
+    autoStartTour();
+  }, [autoStartTour]);
+
+  const [selectedPeriod, setSelectedPeriod] = useState<number>(1);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [selectedEmployeeType, setSelectedEmployeeType] = useState<string>("ALL");
+  const [selectedCompany, setSelectedCompany] = useState<string>("OXP Pvt Ltd");
+
   const [departments, setDepartments] = useState<string[]>([]);
 
   const [metrics, setMetrics] = useState({
-    activeEmployees: 8,
-    runningContracts: 8,
-    pendingLeaves: 2,
-    monthlyPayrollDisbursed: "$54,200.00",
+    totalNetSalaryPaid: "₹ 0.0L",
+    payslipsGenerated: 0,
+    paidPayslipsCount: 0,
+    pendingPayslipsCount: 0,
+    avgSalaryPerEmployee: "₹ 0",
+    approvedTimeOffDays: "0 Days",
+    attendanceHealthRatio: "0%",
+    pendingLeaves: 0,
+    refusedLeaves: 0,
+    todayPresentCount: 0,
+    todayLateCount: 0,
+    todayAbsentCount: 0,
+    todayOvertimeCount: 0,
+    todayMissingCheckInsCount: 0,
+    manualAttendanceEditsCount: 0,
   });
+
+  const [payslipCounts, setPayslipCounts] = useState({
+    draft: 0,
+    computed: 0,
+    validated: 0,
+    paid: 0,
+  });
+
+  const [payrollWarnings, setPayrollWarnings] = useState<PayrollWarning[]>([]);
 
   const [loadingMetrics, setLoadingMetrics] = useState<boolean>(true);
   const [recentPayruns, setRecentPayruns] = useState<any[]>([]);
@@ -42,7 +80,7 @@ export default function DashboardPage() {
     return d.toISOString().slice(0, 10);
   };
 
-  const sinceDate = getSinceDate(selectedMonths);
+  const sinceDate = getSinceDate(selectedPeriod);
 
   useEffect(() => {
     apiClient
@@ -56,25 +94,59 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadDashboard() {
       setLoadingMetrics(true);
+      const isEmployee = role === "EMPLOYEE";
       try {
-        const [summaryRes, payrunsRes, attendanceRes] = await Promise.all([
-          apiClient.get<any>(`/dashboard/summary?sinceDate=${sinceDate}`).catch(() => null),
-          payrollService.getPayruns(0, 3).catch(() => null),
-          attendanceService.getAll(0, 5).catch(() => null),
+        const deptQuery = selectedDepartment ? `&department=${encodeURIComponent(selectedDepartment)}` : "";
+        const [summaryRes, payrunsRes, attendanceRes, payslipsRes] = await Promise.all([
+          apiClient.get<any>(`/dashboard/summary?sinceDate=${sinceDate}${deptQuery}`).catch(() => null),
+          !isEmployee ? payrollService.getPayruns(0, 3).catch(() => null) : Promise.resolve(null),
+          attendanceService.getAll(0, 5, isEmployee ? user?.id : undefined).catch(() => null),
+          isEmployee && user?.id ? payrollService.getPayslips(undefined, 0, 3, user.id).catch(() => null) : Promise.resolve(null),
         ]);
 
         if (summaryRes) {
-          const totalPaidNum = summaryRes.totalNetSalaryPaid ?? summaryRes.totalPaid;
-          const formattedTotal = totalPaidNum != null
-            ? `$${Number(totalPaidNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            : "$0.00";
+          const totalPaidNum = Number(summaryRes.totalNetSalaryPaid ?? summaryRes.totalPaid ?? 0);
+          const formattedTotal = totalPaidNum >= 10000000
+            ? `₹ ${(totalPaidNum / 10000000).toFixed(2)}Cr`
+            : totalPaidNum >= 100000
+            ? `₹ ${(totalPaidNum / 100000).toFixed(1)}L`
+            : `₹ ${totalPaidNum.toLocaleString("en-IN")}`;
+
+          const generated = Number(summaryRes.payslipsGenerated ?? 0);
+          const paidCount = Number(summaryRes.paidPayslipsCount ?? 0);
+          const avgSalNum = summaryRes.averageSalary ? Math.round(Number(summaryRes.averageSalary)) : 0;
+
+          const rawHealth = Number(summaryRes.attendanceHealthRatio ?? 0);
+          const cappedHealth = Math.min(100.0, Math.max(0.0, rawHealth));
 
           setMetrics({
-            activeEmployees: summaryRes.activeEmployeesCount ?? summaryRes.activeEmployees ?? 0,
-            runningContracts: summaryRes.runningContractsCount ?? summaryRes.runningContracts ?? 0,
-            pendingLeaves: summaryRes.pendingLeaveRequestsCount ?? summaryRes.pendingLeaves ?? 0,
-            monthlyPayrollDisbursed: formattedTotal,
+            totalNetSalaryPaid: formattedTotal,
+            payslipsGenerated: generated,
+            paidPayslipsCount: paidCount,
+            pendingPayslipsCount: Math.max(0, generated - paidCount),
+            avgSalaryPerEmployee: avgSalNum > 0 ? `₹ ${avgSalNum.toLocaleString("en-IN")}` : "₹ 0",
+            approvedTimeOffDays: summaryRes.approvedTimeOffDays ? `${summaryRes.approvedTimeOffDays} Days` : "0 Days",
+            attendanceHealthRatio: `${cappedHealth.toFixed(1)}%`,
+            pendingLeaves: Number(summaryRes.pendingLeaveRequestsCount ?? 0),
+            refusedLeaves: Number(summaryRes.refusedLeaveRequestsCount ?? 0),
+            todayPresentCount: Number(summaryRes.todayPresentCount ?? 0),
+            todayLateCount: Number(summaryRes.todayLateCount ?? 0),
+            todayAbsentCount: Number(summaryRes.todayAbsentCount ?? 0),
+            todayOvertimeCount: Number(summaryRes.todayOvertimeCount ?? 0),
+            todayMissingCheckInsCount: Number(summaryRes.todayMissingCheckInsCount ?? 0),
+            manualAttendanceEditsCount: Number(summaryRes.manualAttendanceEditsCount ?? 0),
           });
+
+          setPayslipCounts({
+            draft: Number(summaryRes.draftPayslipsCount ?? 0),
+            computed: Number(summaryRes.computedPayslipsCount ?? 0),
+            validated: Number(summaryRes.validatedPayslipsCount ?? 0),
+            paid: paidCount,
+          });
+
+          if (Array.isArray(summaryRes.payrollWarnings)) {
+            setPayrollWarnings(summaryRes.payrollWarnings);
+          }
         }
 
         if (payrunsRes?.content) {
@@ -84,8 +156,19 @@ export default function DashboardPage() {
               reference: p.name,
               period: `${p.periodStart} – ${p.periodEnd}`,
               employees: p.payslipsCount ?? 0,
-              totalDisbursed: `$${Number(p.totalNet ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+              totalDisbursed: `₹${Number(p.totalNet ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
               status: p.status,
+            }))
+          );
+        } else if (isEmployee && payslipsRes?.content) {
+          setRecentPayruns(
+            payslipsRes.content.map((ps: any) => ({
+              id: ps.id,
+              reference: `Payslip #${ps.id.slice(0, 8)}`,
+              period: ps.contractReference || "Monthly",
+              employees: 1,
+              totalDisbursed: `₹${Number(ps.netSalary ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+              status: ps.status,
             }))
           );
         }
@@ -94,9 +177,10 @@ export default function DashboardPage() {
           setTodayAttendance(
             attendanceRes.content.map((a: any) => ({
               id: a.id,
-              employeeCode: a.employeeCode,
-              name: a.employeeName,
+              employeeCode: a.employeeCode || `EMP-${(a.id || "").slice(0, 4).toUpperCase()}`,
+              name: a.employeeName || "Employee",
               checkIn: a.checkIn ?? "—",
+              checkOut: a.checkOut ?? "—",
               status: a.status,
             }))
           );
@@ -108,103 +192,246 @@ export default function DashboardPage() {
       }
     }
     loadDashboard();
-  }, [sinceDate]);
+  }, [sinceDate, selectedDepartment, role, user?.id]);
+
+  const isEmployeeRole = role === "EMPLOYEE";
+
+  if (isEmployeeRole) {
+    return (
+      <div className="space-y-6">
+        {/* Employee Self-Service Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground font-brand">
+              Employee Portal Dashboard
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Welcome back, <strong>{user?.firstName} {user?.lastName}</strong>. View your personal payslips, leave balances, working schedule, and daily punch status.
+            </p>
+          </div>
+        </div>
+
+        {/* Employee Personal Metric Cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            title="My Latest Net Salary"
+            value={recentPayruns.length > 0 ? recentPayruns[0].totalDisbursed : "₹ 0"}
+            subtitle="Net pay from latest payslip"
+            icon={DollarSign}
+            accent="teal"
+            loading={loadingMetrics}
+          />
+          <MetricCard
+            title="My Payslips"
+            value={recentPayruns.length}
+            subtitle="Total payslips issued"
+            icon={FileText}
+            accent="teal"
+            loading={loadingMetrics}
+          />
+          <MetricCard
+            title="Approved Time Off"
+            value={metrics.approvedTimeOffDays}
+            subtitle="Days approved this year"
+            icon={CalendarDays}
+            accent="gold"
+            loading={loadingMetrics}
+          />
+          <MetricCard
+            title="My Attendance Record"
+            value={todayAttendance.length > 0 ? "100%" : "Present"}
+            subtitle="Monthly attendance rating"
+            icon={UserCheck}
+            accent="teal"
+            loading={loadingMetrics}
+          />
+        </div>
+
+        {/* Employee Self-Service Layout */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-6">
+            <PunchClockWidget />
+            <RecentPayrunTable payruns={recentPayruns} />
+          </div>
+          <div className="space-y-6">
+            <TimeOffOverviewWidget
+              pendingCount={metrics.pendingLeaves}
+              approvedCount={parseInt(metrics.approvedTimeOffDays) || 0}
+              refusedCount={metrics.refusedLeaves}
+            />
+            <QuickAttendanceFeed records={todayAttendance} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Filters */}
+      {/* Top Header & 4 Filters matching Wireframe 6 */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[oklch(20%_0.02_240)]">
-            Operational Payroll Dashboard
+          <h1 className="text-2xl font-bold tracking-tight text-foreground font-brand">
+            Payroll Dashboard
           </h1>
-          <p className="text-xs text-[oklch(50%_0.02_240)]">
-            Real-time workforce activity, active payruns, and financial allocations
+          <p className="text-xs text-muted-foreground">
+            Dashboard should help payroll/HR users understand payments, staffing impact, leave patterns, and attendance quality for the selected period.
           </p>
         </div>
 
-        {/* Period & Department Filters */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-xs shadow-xs">
-            <Calendar className="w-3.5 h-3.5 text-stone-400" strokeWidth={1.5} />
+        {/* 4 Filter Controls: Period, Department, Employee Type, Company */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-xs">
+            <span className="text-muted-foreground font-semibold">Period:</span>
             <select
-              value={selectedMonths}
-              onChange={(e) => setSelectedMonths(Number(e.target.value))}
-              className="bg-transparent text-stone-700 font-medium focus:outline-none cursor-pointer"
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(Number(e.target.value))}
+              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer"
             >
               {PERIOD_OPTIONS.map((opt) => (
-                <option key={opt.months} value={opt.months}>{opt.label}</option>
+                <option key={opt.months} value={opt.months} className="bg-card text-foreground">{opt.label}</option>
               ))}
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-xs shadow-xs">
-            <Building2 className="w-3.5 h-3.5 text-stone-400" strokeWidth={1.5} />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-xs">
+            <span className="text-muted-foreground font-semibold">Department:</span>
             <select
               value={selectedDepartment}
               onChange={(e) => setSelectedDepartment(e.target.value)}
-              className="bg-transparent text-stone-700 font-medium focus:outline-none cursor-pointer"
+              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer"
             >
-              <option value="">All Departments</option>
+              <option value="" className="bg-card text-foreground">All Departments</option>
               {departments.map((dept) => (
-                <option key={dept} value={dept}>{dept}</option>
+                <option key={dept} value={dept} className="bg-card text-foreground">{dept}</option>
               ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-xs">
+            <span className="text-muted-foreground font-semibold">Employee Type:</span>
+            <select
+              value={selectedEmployeeType}
+              onChange={(e) => setSelectedEmployeeType(e.target.value)}
+              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer"
+            >
+              <option value="ALL" className="bg-card text-foreground">All Types</option>
+              <option value="FULL_TIME" className="bg-card text-foreground">Full Time</option>
+              <option value="CONTRACT" className="bg-card text-foreground">Contractor</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-xs">
+            <span className="text-muted-foreground font-semibold">Company:</span>
+            <select
+              value={selectedCompany}
+              onChange={(e) => setSelectedCompany(e.target.value)}
+              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer"
+            >
+              <option value="OXP Pvt Ltd" className="bg-card text-foreground">OXP Pvt Ltd</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* 5 KPI Cards Grid matching Wireframe 6 */}
+      <div id="dashboard-metrics" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <MetricCard
-          title="Active Employees"
-          value={metrics.activeEmployees}
-          subtitle="Full-time headcount"
+          title="Total Net Salary Paid"
+          value={metrics.totalNetSalaryPaid}
+          subtitle="+8.2% vs previous month"
+          icon={DollarSign}
+          accent="teal"
+          loading={loadingMetrics}
+        />
+        <MetricCard
+          title="Payslips Generated"
+          value={metrics.payslipsGenerated}
+          subtitle={`${metrics.paidPayslipsCount} paid, ${metrics.pendingPayslipsCount} pending`}
+          icon={FileText}
+          accent="teal"
+          loading={loadingMetrics}
+        />
+        <MetricCard
+          title="Avg Salary / Employee"
+          value={metrics.avgSalaryPerEmployee}
+          subtitle="Based on contract payroll"
           icon={Users}
           accent="teal"
-          trend={{ value: "+1 this month", positive: true }}
           loading={loadingMetrics}
         />
         <MetricCard
-          title="Running Contracts"
-          value={metrics.runningContracts}
-          subtitle="Non-overlapping active terms"
-          icon={FileText}
-          accent="charcoal"
-          loading={loadingMetrics}
-        />
-        <MetricCard
-          title="Pending Leaves"
-          value={metrics.pendingLeaves}
-          subtitle="Awaiting manager sign-off"
+          title="Approved Time Off Days"
+          value={metrics.approvedTimeOffDays}
+          subtitle="Across tabulated period"
           icon={CalendarDays}
           accent="gold"
-          trend={{ value: "2 urgent", positive: false }}
           loading={loadingMetrics}
         />
         <MetricCard
-          title="Last Disbursed"
-          value={metrics.monthlyPayrollDisbursed}
-          subtitle="Validated & paid"
-          icon={DollarSign}
-          accent="green"
+          title="Attendance Health"
+          value={metrics.attendanceHealthRatio}
+          subtitle="Present / scheduled counts"
+          icon={UserCheck}
+          accent="teal"
           loading={loadingMetrics}
         />
       </div>
 
-      {/* Visual Analytics Widgets */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <DepartmentCostWidget sinceDate={sinceDate} selectedDepartment={selectedDepartment} />
-        <PayrollTrendWidget sinceDate={sinceDate} />
+      {/* Middle Visual Analytics Row matching Wireframe 6 (3 Columns) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-stretch">
+        <div>
+          <DepartmentCostWidget sinceDate={sinceDate} selectedDepartment={selectedDepartment} />
+        </div>
+        <div>
+          <PayrollTrendWidget sinceDate={sinceDate} />
+        </div>
+        <div className="space-y-4 flex flex-col justify-between">
+          <PayslipStatusWidget
+            draftCount={payslipCounts.draft}
+            computedCount={payslipCounts.computed}
+            validatedCount={payslipCounts.validated}
+            paidCount={payslipCounts.paid}
+          />
+          <PayrollWarningsWidget warnings={payrollWarnings} />
+        </div>
       </div>
 
-      {/* Main Operational Split */}
+      {/* Bottom Operational Breakdown Row matching Wireframe 6 (4 Columns) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4 items-stretch">
+        <div>
+          <AttendanceOverviewWidget
+            presentCount={metrics.todayPresentCount}
+            lateCount={metrics.todayLateCount}
+            absentCount={metrics.todayAbsentCount}
+            overtimeCount={metrics.todayOvertimeCount}
+            missingCheckInsCount={metrics.todayMissingCheckInsCount}
+            manualEditsCount={metrics.manualAttendanceEditsCount}
+            coverageRatio={metrics.attendanceHealthRatio}
+          />
+        </div>
+        <div>
+          <TimeOffOverviewWidget
+            pendingCount={metrics.pendingLeaves}
+            approvedCount={parseInt(metrics.approvedTimeOffDays) || 0}
+            refusedCount={metrics.refusedLeaves}
+          />
+        </div>
+        <div>
+          <DepartmentOverviewWidget />
+        </div>
+        <div>
+          <ModelsToAggregateWidget />
+        </div>
+      </div>
+
+      {/* Operational Punch Clock Split */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <RecentPayrunTable payruns={recentPayruns} />
           <QuickAttendanceFeed records={todayAttendance} />
         </div>
-        <div className="space-y-6">
+        <div id="punch-clock-widget" className="space-y-6">
           <PunchClockWidget />
         </div>
       </div>

@@ -19,4 +19,7 @@ public interface WorkingScheduleRepository extends JpaRepository<WorkingSchedule
 
     @Query("SELECT ws FROM WorkingSchedule ws LEFT JOIN FETCH ws.lines WHERE ws.id = :id")
     Optional<WorkingSchedule> findWithLinesById(@Param("id") UUID id);
+
+    @Query("SELECT DISTINCT ws FROM WorkingSchedule ws LEFT JOIN FETCH ws.lines")
+    List<WorkingSchedule> findAllWithLines();
 }

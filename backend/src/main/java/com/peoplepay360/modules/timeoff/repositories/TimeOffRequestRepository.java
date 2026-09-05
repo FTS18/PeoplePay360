@@ -4,6 +4,7 @@ import com.peoplepay360.common.enums.TimeOffStatus;
 import com.peoplepay360.modules.timeoff.entities.TimeOffRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,9 +18,15 @@ import java.util.UUID;
 @Repository
 public interface TimeOffRequestRepository extends JpaRepository<TimeOffRequest, UUID> {
 
+    @EntityGraph(attributePaths = {"employee", "timeOffType"})
     Page<TimeOffRequest> findByEmployeeIdOrderByStartDateDesc(UUID employeeId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"employee", "timeOffType"})
     Page<TimeOffRequest> findByStatus(TimeOffStatus status, Pageable pageable);
+
+    @Override
+    @EntityGraph(attributePaths = {"employee", "timeOffType"})
+    Page<TimeOffRequest> findAll(Pageable pageable);
 
     @Query("SELECT r FROM TimeOffRequest r " +
            "WHERE r.employee.id = :employeeId " +
@@ -61,4 +68,15 @@ public interface TimeOffRequestRepository extends JpaRepository<TimeOffRequest, 
     );
 
     long countByStatus(TimeOffStatus status);
+
+    @Query("SELECT COUNT(r) FROM TimeOffRequest r " +
+           "WHERE r.employee.id = :employeeId " +
+           "AND r.status = 'CONFIRM' " +
+           "AND r.startDate <= :periodEnd " +
+           "AND r.endDate >= :periodStart")
+    long countPendingRequestsInWindow(
+            @Param("employeeId") UUID employeeId,
+            @Param("periodStart") LocalDate periodStart,
+            @Param("periodEnd") LocalDate periodEnd
+    );
 }

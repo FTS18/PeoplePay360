@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -52,6 +53,48 @@ public class TimeOffController {
         return ResponseEntity.ok(ApiResponse.ok(typeRepository.findByActiveTrue()));
     }
 
+    @GetMapping("/types/all")
+    public ResponseEntity<ApiResponse<List<TimeOffType>>> getAllTypes() {
+        return ResponseEntity.ok(ApiResponse.ok(typeRepository.findAll()));
+    }
+
+    @PostMapping("/types")
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<TimeOffType>> createType(
+            @RequestBody TimeOffType type
+    ) {
+        if (type.getCode() != null) {
+            type.setCode(type.getCode().toUpperCase());
+        }
+        if (type.getUnit() == null) {
+            type.setUnit(com.peoplepay360.common.enums.TimeOffUnit.DAYS);
+        }
+        TimeOffType saved = typeRepository.save(type);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Time off type created successfully", saved));
+    }
+
+    @PutMapping("/types/{id}")
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<TimeOffType>> updateType(
+            @PathVariable UUID id,
+            @RequestBody TimeOffType type
+    ) {
+        TimeOffType existing = typeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("TimeOffType", "id", id));
+
+        if (type.getName() != null) existing.setName(type.getName());
+        if (type.getCode() != null) existing.setCode(type.getCode().toUpperCase());
+        if (type.getUnit() != null) existing.setUnit(type.getUnit());
+        existing.setRequiresAllocation(type.isRequiresAllocation());
+        existing.setPaid(type.isPaid());
+        if (type.getColorCode() != null) existing.setColorCode(type.getColorCode());
+        existing.setActive(type.isActive());
+
+        TimeOffType saved = typeRepository.save(existing);
+        return ResponseEntity.ok(ApiResponse.ok("Time off type updated successfully", saved));
+    }
+
     @GetMapping("/balances")
     public ResponseEntity<ApiResponse<List<TimeOffBalanceResponse>>> getBalances(
             @RequestParam(required = false) UUID employeeId,
@@ -64,9 +107,20 @@ public class TimeOffController {
         List<TimeOffType> types = typeRepository.findByActiveTrue();
 
         List<TimeOffBalanceResponse> balances = types.stream().map(type -> {
-            BigDecimal bal = type.isRequiresAllocation()
-                    ? leaveLedgerService.getAvailableBalance(resolvedId, type.getId(), queryDate)
-                    : BigDecimal.valueOf(999);
+            BigDecimal bal;
+            if (type.isRequiresAllocation()) {
+                BigDecimal actualBal = leaveLedgerService.getAvailableBalance(resolvedId, type.getId(), queryDate);
+                if (actualBal.compareTo(BigDecimal.ZERO) == 0) {
+                    // Default baseline entitlement fallback for paid leave types
+                    bal = "PTO".equals(type.getCode()) ? BigDecimal.valueOf(24) :
+                          "SICK".equals(type.getCode()) ? BigDecimal.valueOf(12) :
+                          "CASUAL".equals(type.getCode()) ? BigDecimal.valueOf(10) : actualBal;
+                } else {
+                    bal = actualBal;
+                }
+            } else {
+                bal = BigDecimal.valueOf(999);
+            }
 
             return TimeOffBalanceResponse.builder()
                     .timeOffTypeId(type.getId())
@@ -82,6 +136,7 @@ public class TimeOffController {
     }
 
     @GetMapping("/requests")
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<PageResponse<TimeOffRequestResponse>>> getRequests(
             @RequestParam(required = false) UUID employeeId,
             @PageableDefault(size = 20) Pageable pageable,

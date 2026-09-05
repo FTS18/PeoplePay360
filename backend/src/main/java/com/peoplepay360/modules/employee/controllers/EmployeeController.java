@@ -9,6 +9,7 @@ import com.peoplepay360.modules.employee.services.EmployeeService;
 import com.peoplepay360.security.SecurityUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -26,6 +28,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
+
+import com.peoplepay360.common.enums.Role;
+import com.peoplepay360.modules.employee.dto.requests.UpdateAccessRequest;
 
 @RestController
 @RequestMapping("/employees")
@@ -40,9 +45,10 @@ public class EmployeeController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String department,
             @RequestParam(required = false) EmployeeStatus status,
+            @RequestParam(required = false) Role role,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        PageResponse<EmployeeResponse> page = employeeService.getEmployees(search, department, status, pageable);
+        PageResponse<EmployeeResponse> page = employeeService.getEmployees(search, department, status, role, pageable);
         return ResponseEntity.ok(ApiResponse.ok(page));
     }
 
@@ -62,6 +68,7 @@ public class EmployeeController {
         return ResponseEntity.ok(ApiResponse.ok(departments));
     }
 
+    @CacheEvict(value = {"dashboardSummary", "departmentCosts", "monthlyTrends", "employeesList"}, allEntries = true)
     @PostMapping
     @PreAuthorize("hasAnyRole('HR_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<EmployeeResponse>> createEmployee(
@@ -72,13 +79,26 @@ public class EmployeeController {
                 .body(ApiResponse.ok("Employee created successfully", created));
     }
 
+    @CacheEvict(value = {"dashboardSummary", "departmentCosts", "monthlyTrends", "employeesList"}, allEntries = true)
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('HR_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<EmployeeResponse>> updateEmployee(
             @PathVariable UUID id,
-            @RequestBody com.peoplepay360.modules.employee.dto.requests.UpdateEmployeeRequest request
+            @Valid @RequestBody com.peoplepay360.modules.employee.dto.requests.UpdateEmployeeRequest request
     ) {
         EmployeeResponse updated = employeeService.updateEmployee(id, request);
         return ResponseEntity.ok(ApiResponse.ok("Employee updated successfully", updated));
+    }
+
+    @CacheEvict(value = {"dashboardSummary", "departmentCosts", "monthlyTrends", "employeesList"}, allEntries = true)
+    @PatchMapping("/{id}/access")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<EmployeeResponse>> updateAccess(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateAccessRequest request,
+            @AuthenticationPrincipal SecurityUser currentUser
+    ) {
+        EmployeeResponse updated = employeeService.updateAccess(id, request, currentUser.getId());
+        return ResponseEntity.ok(ApiResponse.ok("User access updated successfully", updated));
     }
 }

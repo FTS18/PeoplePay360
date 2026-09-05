@@ -15,6 +15,13 @@ export interface OverridePayload {
   overrideReason: string;
 }
 
+export interface AttendanceStats {
+  totalEntries: number;
+  presentCount: number;
+  exceptionCount: number;
+  totalWorkedHours: number;
+}
+
 export const attendanceService = {
   getAll: (page = 0, size = 15, employeeId?: string) => {
     const params = new URLSearchParams({
@@ -23,6 +30,12 @@ export const attendanceService = {
     });
     if (employeeId) params.append("employeeId", employeeId);
     return apiClient.get<PageResponse<AttendanceRecord>>(`/attendance?${params.toString()}`);
+  },
+
+  getStats: (employeeId?: string) => {
+    const params = new URLSearchParams();
+    if (employeeId) params.append("employeeId", employeeId);
+    return apiClient.get<AttendanceStats>(`/attendance/stats${params.toString() ? `?${params.toString()}` : ''}`);
   },
 
   punch: (payload: PunchPayload) =>

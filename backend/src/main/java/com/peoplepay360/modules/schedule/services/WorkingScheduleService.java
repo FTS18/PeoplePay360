@@ -22,11 +22,11 @@ public class WorkingScheduleService {
     private final WorkingScheduleRepository scheduleRepository;
 
     public List<WorkingSchedule> getAllSchedules() {
-        return scheduleRepository.findAll();
+        return scheduleRepository.findAllWithLines();
     }
 
     public WorkingSchedule getScheduleById(UUID id) {
-        return scheduleRepository.findById(id)
+        return scheduleRepository.findWithLinesById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("WorkingSchedule", "id", id));
     }
 

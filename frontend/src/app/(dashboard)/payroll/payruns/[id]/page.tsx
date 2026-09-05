@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -11,6 +11,7 @@ import { PayrunSummaryCards } from "@/components/modules/payroll/PayrunSummaryCa
 import { PayrunPayslipsTable } from "@/components/modules/payroll/PayrunPayslipsTable";
 import { PayslipDetailModal } from "@/components/modules/payroll/PayslipDetailModal";
 import { PayrunWarningsWidget } from "@/components/modules/payroll/PayrunWarningsWidget";
+import { ROUTES } from "@/config/routes";
 
 export default function PayrunDetailPage() {
   const params = useParams();
@@ -58,18 +59,21 @@ export default function PayrunDetailPage() {
 
   if (loading && !payrun) {
     return (
-      <div className="p-8 text-center text-stone-400">
-        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-teal-700" strokeWidth={1.5} />
-        Loading payrun batch details...
+      <div className="p-12 text-center text-muted-foreground">
+        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-teal-600 dark:text-teal-400" strokeWidth={1.5} />
+        <p className="text-xs">Loading payrun batch details...</p>
       </div>
     );
   }
 
   if (!payrun) {
     return (
-      <div className="p-8 text-center text-stone-500">
-        <p>Payrun batch not found.</p>
-        <Link href="/payroll/payruns" className="text-teal-700 text-xs mt-2 inline-block font-medium">
+      <div className="p-12 text-center text-muted-foreground">
+        <p className="text-sm font-semibold text-foreground">Payrun batch not found.</p>
+        <Link 
+          href={ROUTES.PAYROLL.PAYRUNS} 
+          className="text-teal-700 dark:text-teal-400 text-xs mt-2 inline-block font-semibold hover:underline"
+        >
           Back to Payruns Directory
         </Link>
       </div>
@@ -81,26 +85,26 @@ export default function PayrunDetailPage() {
       {/* Header */}
       <div>
         <Link
-          href="/payroll/payruns"
-          className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 mb-2 transition-colors"
+          href={ROUTES.PAYROLL.PAYRUNS}
+          className="apple-press inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-2.5 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
-          Back to Payruns Directory
+          <span>Back to Payruns Directory</span>
         </Link>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-stone-900">{payrun.name}</h1>
-            <p className="text-xs text-stone-500">
-              Period: {payrun.periodStart} to {payrun.periodEnd} | Reference: PAYRUN-{payrun.id.slice(0, 8)}
+            <h1 className="text-xl font-bold tracking-tight text-foreground">{payrun.name}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Period: {payrun.periodStart} to {payrun.periodEnd} | Reference: <span className="tabular-nums">PAYRUN-{payrun.id.slice(0, 8)}</span>
             </p>
           </div>
           <button
             onClick={loadPayrunData}
             disabled={loading}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-stone-50 text-stone-700 text-xs font-medium rounded-xl border border-stone-200 shadow-xs cursor-pointer"
+            className="apple-press self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-2 bg-card hover:bg-muted text-foreground text-xs font-semibold rounded-full border border-stone-300/80 dark:border-stone-700/80 shadow-apple-sm cursor-pointer transition-all"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} strokeWidth={1.5} />
-            Refresh
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-teal-600" : ""}`} strokeWidth={1.5} />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
@@ -115,10 +119,10 @@ export default function PayrunDetailPage() {
       <PayrunWarningsWidget payrun={payrun} payslips={payslips} />
 
       {/* Payslips Table */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-stone-800">Itemized Employee Payslips</h2>
-          <span className="text-xs text-stone-400">{payslips.length} Total Payslips Compiled</span>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-foreground">Itemized Employee Payslips</h2>
+          <span className="text-xs text-muted-foreground tabular-nums font-medium">{payslips.length} Total Payslips Compiled</span>
         </div>
         <PayrunPayslipsTable payslips={payslips} onSelectPayslip={handleViewPayslip} />
       </div>

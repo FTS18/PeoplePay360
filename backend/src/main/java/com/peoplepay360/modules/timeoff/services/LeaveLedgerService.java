@@ -1,9 +1,12 @@
 package com.peoplepay360.modules.timeoff.services;
 
+import com.peoplepay360.common.enums.AttendanceStatus;
 import com.peoplepay360.common.enums.TimeOffStatus;
 import com.peoplepay360.exception.BusinessRuleViolationException;
 import com.peoplepay360.exception.InsufficientLeaveBalanceException;
 import com.peoplepay360.exception.ResourceNotFoundException;
+import com.peoplepay360.modules.attendance.entities.AttendanceRecord;
+import com.peoplepay360.modules.attendance.repositories.AttendanceRecordRepository;
 import com.peoplepay360.modules.employee.entities.Employee;
 import com.peoplepay360.modules.timeoff.entities.TimeOffRequest;
 import com.peoplepay360.modules.timeoff.entities.TimeOffType;
@@ -27,6 +30,7 @@ public class LeaveLedgerService {
     private final TimeOffAllocationRepository allocationRepository;
     private final TimeOffRequestRepository requestRepository;
     private final TimeOffTypeRepository typeRepository;
+    private final AttendanceRecordRepository attendanceRepository;
 
     public BigDecimal getAvailableBalance(UUID employeeId, UUID timeOffTypeId, LocalDate asOfDate) {
         BigDecimal totalAllocated = allocationRepository.sumApprovedAllocations(employeeId, timeOffTypeId, asOfDate);
@@ -83,6 +87,29 @@ public class LeaveLedgerService {
         request.setStatus(TimeOffStatus.APPROVED);
         request.setApprover(approver);
         request.setApprovalDate(Instant.now());
+
+        // Auto-seed attendance records for each day of approved leave
+        LocalDate curr = request.getStartDate();
+        BigDecimal expectedHours = (request.getEmployee().getWorkingSchedule() != null && request.getEmployee().getWorkingSchedule().getAverageHoursPerDay() != null)
+                ? request.getEmployee().getWorkingSchedule().getAverageHoursPerDay()
+                : BigDecimal.valueOf(8);
+
+        while (!curr.isAfter(request.getEndDate())) {
+            LocalDate d = curr;
+            attendanceRepository.findByEmployeeIdAndDate(request.getEmployee().getId(), d)
+                    .orElseGet(() -> attendanceRepository.save(AttendanceRecord.builder()
+                            .employee(request.getEmployee())
+                            .date(d)
+                            .expectedHours(expectedHours)
+                            .workedHours(request.getTimeOffType().isPaid() ? expectedHours : BigDecimal.ZERO)
+                            .status(request.getTimeOffType().isPaid() ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT)
+                            .manualOverride(true)
+                            .overrideReason("Approved Time Off: " + request.getTimeOffType().getName())
+                            .reviewedBy(approver)
+                            .build()));
+            curr = curr.plusDays(1);
+        }
+
         return requestRepository.save(request);
     }
 

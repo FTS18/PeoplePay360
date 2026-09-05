@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { Clock, CheckCircle2, AlertCircle, ArrowUpRight, ShieldCheck } from "lucide-react";
@@ -66,27 +66,27 @@ export function AttendancePunchClock({ onPunchSuccess }: AttendancePunchClockPro
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-xs">
-      <div className="flex items-center justify-between pb-4 border-b border-stone-100">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center">
+    <div className="bg-card rounded-2xl border border-[var(--border)] dark:border-[var(--border-subtle)] p-6 shadow-apple-sm text-foreground apple-specular">
+      <div className="flex items-center justify-between pb-4 border-b border-stone-200/70 dark:border-[var(--border-subtle)]">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/20">
             <Clock className="w-4 h-4" strokeWidth={1.5} />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-stone-900">Live Punch Terminal</h3>
-            <p className="text-xs text-stone-500">Standard 40h Shift Schedule</p>
+            <h3 className="text-sm font-semibold text-foreground">Live Punch Terminal</h3>
+            <p className="text-xs text-muted-foreground">Standard 40h Shift Schedule</p>
           </div>
         </div>
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-2xs ${
             isCheckedIn
-              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-              : "bg-stone-100 text-stone-600 border border-stone-200"
+              ? "bg-teal-500/15 text-teal-700 dark:text-teal-400 border border-teal-500/30"
+              : "bg-[var(--muted)] dark:bg-stone-800 text-muted-foreground border border-stone-200 dark:border-stone-700"
           }`}
         >
           <span
             className={`w-1.5 h-1.5 rounded-full ${
-              isCheckedIn ? "bg-emerald-500 animate-pulse" : "bg-stone-400"
+              isCheckedIn ? "bg-teal-500 animate-pulse" : "bg-stone-400"
             }`}
           />
           {isCheckedIn ? "Clocked In" : "Off Duty"}
@@ -94,28 +94,32 @@ export function AttendancePunchClock({ onPunchSuccess }: AttendancePunchClockPro
       </div>
 
       <div className="my-6 text-center">
-        <div className="text-3xl font-bold tracking-tight text-stone-900">{time || "--:--:--"}</div>
-        <div className="text-xs font-medium text-stone-400 mt-1">{dateStr}</div>
+        <div className="text-3xl font-bold tracking-tight text-foreground tabular-nums" suppressHydrationWarning>
+          {time || "--:--:--"}
+        </div>
+        <div className="text-xs font-medium text-muted-foreground mt-1" suppressHydrationWarning>
+          {dateStr}
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-6 bg-stone-50 p-3 rounded-xl border border-stone-100 text-xs">
+      <div className="grid grid-cols-2 gap-3 mb-6 bg-stone-50/50 dark:bg-stone-900/40 p-3.5 rounded-xl border border-[var(--border)] dark:border-[var(--border-subtle)] text-xs">
         <div>
-          <span className="text-stone-500 block">Scheduled Shift</span>
-          <span className="font-semibold text-stone-800">09:00 AM - 06:00 PM</span>
+          <span className="text-muted-foreground block text-[11px]">Scheduled Shift</span>
+          <span className="font-semibold text-foreground tabular-nums">09:00 AM - 06:00 PM</span>
         </div>
         <div>
-          <span className="text-stone-500 block">Break Allowance</span>
-          <span className="font-semibold text-stone-800">1.00 hr (Lunch)</span>
+          <span className="text-muted-foreground block text-[11px]">Break Allowance</span>
+          <span className="font-semibold text-foreground">1.00 hr (Lunch)</span>
         </div>
       </div>
 
       <button
         onClick={handlePunch}
         disabled={loading}
-        className={`w-full py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs ${
+        className={`apple-press w-full py-2.5 px-4 rounded-full font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-apple-sm ${
           isCheckedIn
             ? "bg-amber-600 hover:bg-amber-700 text-white"
-            : "bg-teal-700 hover:bg-teal-800 text-white"
+            : "bg-teal-700 hover:bg-teal-800 dark:bg-teal-600 dark:hover:bg-teal-500 text-white"
         } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
       >
         <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
@@ -123,13 +127,13 @@ export function AttendancePunchClock({ onPunchSuccess }: AttendancePunchClockPro
       </button>
 
       {lastPunchTime && (
-        <p className="text-center text-xs text-stone-400 mt-3">
+        <p className="text-center text-xs text-muted-foreground mt-3">
           Last recorded action at {lastPunchTime}
         </p>
       )}
 
-      <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-center gap-1.5 text-stone-400 text-xs">
-        <ShieldCheck className="w-3.5 h-3.5 text-teal-600" strokeWidth={1.5} />
+      <div className="mt-4 pt-3 border-t border-stone-200/70 dark:border-[var(--border-subtle)] flex items-center justify-center gap-1.5 text-muted-foreground text-xs">
+        <ShieldCheck className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" strokeWidth={1.5} />
         <span>Enterprise Geofence Protection Active</span>
       </div>
     </div>

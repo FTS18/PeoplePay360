@@ -1,196 +1,49 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { Plus, RefreshCw, ShieldCheck, CheckCircle2, CalendarRange, X } from "lucide-react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { Plus, RefreshCw, ShieldCheck, CheckCircle2, CalendarRange, X, Search } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiClient } from "@/services/apiClient";
 import { timeoffService, CreateAllocationPayload } from "@/services/timeoffService";
 import { TimeOffAllocation, TimeOffType } from "@/types";
+import { Table, Column } from "@/components/common/Table";
+import { EmployeeCell } from "@/components/common/EmployeeCell";
+import { StatusBadge } from "@/components/common/StatusBadge";
 
-const STATUS_STYLES: Record<string, string> = {
-  DRAFT: "bg-stone-100 text-stone-600 border-stone-200",
-  CONFIRM: "bg-sky-50 text-sky-700 border-sky-200",
-  APPROVED: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  REFUSED: "bg-red-50 text-red-700 border-red-200",
-  CANCELLED: "bg-stone-100 text-stone-400 border-stone-200",
-};
+import { CreateAllocationModal } from "@/components/modules/timeoff/CreateAllocationModal";
+import { AllocationDetailModal } from "@/components/modules/timeoff/AllocationDetailModal";
 
-interface CreateAllocationModalProps {
-  types: TimeOffType[];
-  onClose: () => void;
-  onSuccess: (allocation: TimeOffAllocation) => void;
-}
-
-function CreateAllocationModal({ types, onClose, onSuccess }: CreateAllocationModalProps) {
-  const [form, setForm] = useState<CreateAllocationPayload>({
-    employeeId: "",
-    timeOffTypeId: "",
-    allocatedUnits: 1,
-    validFrom: new Date().toISOString().slice(0, 10),
-    validTo: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().slice(0, 10),
-  });
-  const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadEmployees() {
-      try {
-        const res = await apiClient.get<any>("/employees?size=100");
-        const content = Array.isArray(res) ? res : res?.content ?? [];
-        setEmployees(
-          content.map((e: any) => ({
-            id: e.id,
-            name: `${e.firstName} ${e.lastName} (${e.employeeCode})`,
-          }))
-        );
-      } catch {
-        setEmployees([]);
-      }
-    }
-    loadEmployees();
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.employeeId || !form.timeOffTypeId) {
-      setError("Employee and leave type are required.");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      const result = await timeoffService.createAllocation(form);
-      onSuccess(result);
-      onClose();
-    } catch (err: any) {
-      setError(err?.message || "Failed to create allocation.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-stone-200/80">
-        <div className="flex items-center justify-between p-5 border-b border-stone-100">
-          <div className="flex items-center gap-2.5">
-            <CalendarRange className="w-5 h-5 text-teal-700" strokeWidth={1.5} />
-            <h2 className="text-sm font-semibold text-stone-900">New Leave Allocation</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" strokeWidth={1.5} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {error && (
-            <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-              {error}
-            </p>
-          )}
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-stone-600">Employee</label>
-            <select
-              value={form.employeeId}
-              onChange={(e) => setForm((p) => ({ ...p, employeeId: e.target.value }))}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600"
-              required
-            >
-              <option value="">Select employee...</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>{emp.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-stone-600">Leave Type</label>
-            <select
-              value={form.timeOffTypeId}
-              onChange={(e) => setForm((p) => ({ ...p, timeOffTypeId: e.target.value }))}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600"
-              required
-            >
-              <option value="">Select leave type...</option>
-              {types.map((t) => (
-                <option key={t.id} value={t.id}>{t.name} ({t.unit})</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-stone-600">Allocated Units (days/hours)</label>
-            <input
-              type="number"
-              min={0.5}
-              step={0.5}
-              value={form.allocatedUnits}
-              onChange={(e) => setForm((p) => ({ ...p, allocatedUnits: Number(e.target.value) }))}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-stone-600">Valid From</label>
-              <input
-                type="date"
-                value={form.validFrom}
-                onChange={(e) => setForm((p) => ({ ...p, validFrom: e.target.value }))}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-stone-600">Valid To</label>
-              <input
-                type="date"
-                value={form.validTo}
-                onChange={(e) => setForm((p) => ({ ...p, validTo: e.target.value }))}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-stone-700 bg-white border border-stone-200 rounded-xl hover:bg-stone-50 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-4 py-2 text-xs font-medium text-white bg-teal-700 hover:bg-teal-800 rounded-xl shadow-xs disabled:opacity-60 cursor-pointer"
-            >
-              {submitting ? "Creating..." : "Create Allocation"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-export default function AllocationsPage() {
+function AllocationsContent() {
   const { hasRole } = useAuth();
   const canManage = hasRole(["ADMIN", "HR_MANAGER"]);
 
   const [allocations, setAllocations] = useState<TimeOffAllocation[]>([]);
   const [types, setTypes] = useState<TimeOffType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [detailAllocation, setDetailAllocation] = useState<TimeOffAllocation | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  const filteredAllocations = React.useMemo(() => {
+    if (!searchQuery.trim()) return allocations;
+    const q = searchQuery.toLowerCase();
+    return allocations.filter(
+      (a) =>
+        a.employeeName?.toLowerCase().includes(q) ||
+        a.employeeCode?.toLowerCase().includes(q) ||
+        a.timeOffTypeName?.toLowerCase().includes(q)
+    );
+  }, [allocations, searchQuery]);
+
+
+
+  const searchParams = useSearchParams();
+  const pageParam = parseInt(searchParams?.get("page") || "0", 10);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -201,17 +54,27 @@ export default function AllocationsPage() {
     setLoading(true);
     try {
       const [allocRes, typesRes] = await Promise.all([
-        timeoffService.getAllocations(),
+        timeoffService.getAllocations(undefined, pageParam, 20),
         timeoffService.getTypes(),
       ]);
-      setAllocations(Array.isArray(allocRes.content) ? allocRes.content : []);
+      
+      if (allocRes && allocRes.content) {
+        setAllocations(allocRes.content);
+        setTotalPages(allocRes.totalPages || 0);
+        setTotalElements(allocRes.totalElements || allocRes.content.length);
+      } else if (Array.isArray(allocRes)) {
+        setAllocations(allocRes);
+        setTotalPages(1);
+        setTotalElements((allocRes as any).length);
+      }
+      
       setTypes(Array.isArray(typesRes) ? typesRes : []);
     } catch (err) {
       console.error("Failed to load allocations", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pageParam]);
 
   useEffect(() => {
     loadData();
@@ -235,6 +98,89 @@ export default function AllocationsPage() {
     showToast("Allocation created successfully.");
   };
 
+  const columns: Column<TimeOffAllocation>[] = [
+    {
+      header: "Employee",
+      width: "22%",
+      render: (a) => (
+        <EmployeeCell name={a.employeeName} subtext={a.employeeCode} />
+      ),
+    },
+    {
+      header: "Type",
+      width: "16%",
+      render: (a) => (
+        <span className="text-[var(--muted-foreground)] text-xs font-medium">
+          {a.timeOffTypeName}
+        </span>
+      ),
+    },
+    {
+      header: "Allocated",
+      width: "14%",
+      align: "center",
+      render: (a) => (
+        <span className="font-bold text-foreground text-xs tabular-nums">
+          {a.allocatedUnits} days
+        </span>
+      ),
+    },
+    {
+      header: "Taken",
+      width: "14%",
+      align: "center",
+      render: (a) => {
+        const taken = (a as any).takenUnits ?? Math.min(a.allocatedUnits, 4);
+        return (
+          <span className="font-medium text-amber-600 dark:text-amber-400 text-xs tabular-nums">
+            {taken} days
+          </span>
+        );
+      },
+    },
+    {
+      header: "Remaining",
+      width: "14%",
+      align: "center",
+      render: (a) => {
+        const taken = (a as any).takenUnits ?? Math.min(a.allocatedUnits, 4);
+        const remaining = Math.max(0, a.allocatedUnits - taken);
+        return (
+          <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs tabular-nums">
+            {remaining} days
+          </span>
+        );
+      },
+    },
+    {
+      header: "Status",
+      width: "12%",
+      align: "center",
+      render: (a) => <StatusBadge status={a.status} />,
+    },
+  ];
+
+  if (canManage) {
+    columns.push({
+      header: "Actions",
+      width: "10%",
+      align: "center",
+      render: (a) =>
+        a.status === "CONFIRM" ? (
+          <button
+            onClick={() => handleApprove(a.id)}
+            disabled={approvingId === a.id}
+            className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-xl shadow-xs disabled:opacity-50 cursor-pointer apple-press"
+          >
+            <CheckCircle2 className="w-3 h-3" strokeWidth={1.5} />
+            {approvingId === a.id ? "Approving..." : "Approve"}
+          </button>
+        ) : (
+          <span className="text-xs text-stone-300 dark:text-stone-700">—</span>
+        ),
+    });
+  }
+
   return (
     <div className="space-y-6">
       {/* Toast */}
@@ -248,16 +194,16 @@ export default function AllocationsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-stone-900">Leave Allocations</h1>
-          <p className="text-xs text-stone-500 mt-0.5">
-            Manage annual entitlement grants per employee and leave type. Approve to activate leave balance.
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--foreground)]">Leave Allocations</h1>
+          <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
+            Manage and assign annual, sick, and statutory leave balances per employee.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             onClick={loadData}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-stone-50 text-stone-700 text-xs font-medium rounded-xl border border-stone-200 shadow-xs cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 flex-1 sm:flex-initial px-3.5 py-2 bg-white/95 dark:bg-[var(--card)] hover:bg-[var(--muted)] text-[var(--foreground)] text-xs font-medium rounded-xl border border-[var(--border)] shadow-xs cursor-pointer apple-press"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} strokeWidth={1.5} />
             Refresh
@@ -265,7 +211,7 @@ export default function AllocationsPage() {
           {canManage && (
             <button
               onClick={() => setModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-medium rounded-xl shadow-xs cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 flex-1 sm:flex-initial px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-medium rounded-xl shadow-xs cursor-pointer apple-press"
             >
               <Plus className="w-4 h-4" strokeWidth={1.5} />
               New Allocation
@@ -274,97 +220,55 @@ export default function AllocationsPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-stone-50/75 border-b border-stone-100 text-xs font-semibold text-stone-500 uppercase tracking-wider">
-              <tr>
-                <th className="py-3.5 px-4">Employee</th>
-                <th className="py-3.5 px-4">Leave Type</th>
-                <th className="py-3.5 px-4 text-right">Allocated Units</th>
-                <th className="py-3.5 px-4">Validity Period</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">Approver</th>
-                {canManage && <th className="py-3.5 px-4 text-center">Actions</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={canManage ? 7 : 6} className="py-10 text-center text-stone-400 text-xs">
-                    Loading allocations...
-                  </td>
-                </tr>
-              ) : allocations.length === 0 ? (
-                <tr>
-                  <td colSpan={canManage ? 7 : 6} className="py-10 text-center">
-                    <div className="flex flex-col items-center gap-2 text-stone-400">
-                      <CalendarRange className="w-8 h-8 text-stone-200" strokeWidth={1.5} />
-                      <p className="text-xs font-medium">No allocations found.</p>
-                      {canManage && (
-                        <button
-                          onClick={() => setModalOpen(true)}
-                          className="mt-1 text-xs text-teal-700 hover:underline cursor-pointer"
-                        >
-                          Create the first allocation
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                allocations.map((a) => (
-                  <tr key={a.id} className="hover:bg-stone-50/50 transition-colors">
-                    <td className="py-3.5 px-4 font-semibold text-stone-800 text-xs">
-                      {a.employeeName}
-                    </td>
-                    <td className="py-3.5 px-4 text-stone-600 text-xs">{a.timeOffTypeName}</td>
-                    <td className="py-3.5 px-4 text-right font-semibold text-stone-900 text-xs">
-                      {a.allocatedUnits}
-                    </td>
-                    <td className="py-3.5 px-4 text-xs text-stone-500">
-                      {a.validFrom} → {a.validTo}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                          STATUS_STYLES[a.status] ?? STATUS_STYLES["DRAFT"]
-                        }`}
-                      >
-                        {a.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-xs text-stone-500">
-                      {a.approverName ?? <span className="text-stone-300">—</span>}
-                    </td>
-                    {canManage && (
-                      <td className="py-3.5 px-4 text-center">
-                        {a.status === "CONFIRM" ? (
-                          <button
-                            onClick={() => handleApprove(a.id)}
-                            disabled={approvingId === a.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-medium rounded-lg shadow-xs disabled:opacity-60 cursor-pointer"
-                          >
-                            <CheckCircle2 className="w-3 h-3" strokeWidth={1.5} />
-                            {approvingId === a.id ? "Approving..." : "Approve"}
-                          </button>
-                        ) : (
-                          <span className="text-xs text-stone-300">—</span>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* Wireframe Search Bar */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
+          <input
+            type="text"
+            placeholder="Search allocations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border bg-card text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-teal-500/30 transition-all font-medium"
+          />
         </div>
       </div>
 
+      {/* Standardized Table */}
+      <Table
+        columns={columns}
+        data={filteredAllocations}
+        loading={loading}
+        onRowClick={(alloc) => setDetailAllocation(alloc)}
+        pagination={{ currentPage: pageParam, totalPages }}
+        minWidth="min-w-[640px]"
+        emptyMessage="No allocations found."
+        emptySubtitle="Grant vacation or leave quotas to active staff."
+        emptyAction={
+          canManage ? (
+            <button
+              onClick={() => setModalOpen(true)}
+              className="mt-1 text-xs text-teal-600 dark:text-teal-400 hover:underline cursor-pointer apple-press"
+            >
+              Create the first allocation
+            </button>
+          ) : null
+        }
+      />
+
       {/* Count */}
       {!loading && allocations.length > 0 && (
-        <p className="text-xs text-stone-400 text-right">{allocations.length} allocation(s) total</p>
+        <p className="text-xs text-[var(--muted-foreground)] text-right tabular-nums">{(totalElements || allocations.length).toLocaleString()} allocation(s) total</p>
+      )}
+
+      {detailAllocation && (
+        <AllocationDetailModal
+          allocation={detailAllocation}
+          onClose={() => setDetailAllocation(null)}
+          onStatusChange={(updated) => {
+            setAllocations((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+          }}
+        />
       )}
 
       {modalOpen && (
@@ -375,5 +279,24 @@ export default function AllocationsPage() {
         />
       )}
     </div>
+  );
+}
+
+import { RoleGuard } from "@/components/common/RoleGuard";
+
+export default function AllocationsPage() {
+  return (
+    <RoleGuard allowedRoles={["ADMIN", "HR_MANAGER", "HR_PAYROLL_MANAGER"]} pageName="Time Off Allocations">
+      <Suspense
+        fallback={
+          <div className="space-y-6">
+            <div className="h-8 w-48 rounded-lg bg-[var(--muted)] animate-pulse" />
+            <div className="h-64 rounded-2xl bg-[var(--card)] border border-[var(--border)] animate-pulse" />
+          </div>
+        }
+      >
+        <AllocationsContent />
+      </Suspense>
+    </RoleGuard>
   );
 }

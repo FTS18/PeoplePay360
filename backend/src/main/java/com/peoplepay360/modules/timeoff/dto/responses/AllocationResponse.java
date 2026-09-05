@@ -22,6 +22,7 @@ public class AllocationResponse {
 
     private UUID id;
     private UUID employeeId;
+    private String employeeCode;
     private String employeeName;
     private UUID timeOffTypeId;
     private String timeOffTypeName;
@@ -37,6 +38,10 @@ public class AllocationResponse {
                 ? allocation.getEmployee().getFirstName() + " " + allocation.getEmployee().getLastName()
                 : "Unknown";
 
+        String empCode = allocation.getEmployee() != null
+                ? allocation.getEmployee().getEmployeeCode()
+                : null;
+
         String appName = allocation.getApprover() != null
                 ? allocation.getApprover().getFirstName() + " " + allocation.getApprover().getLastName()
                 : null;
@@ -44,6 +49,7 @@ public class AllocationResponse {
         return AllocationResponse.builder()
                 .id(allocation.getId())
                 .employeeId(allocation.getEmployee() != null ? allocation.getEmployee().getId() : null)
+                .employeeCode(empCode)
                 .employeeName(empName)
                 .timeOffTypeId(allocation.getTimeOffType() != null ? allocation.getTimeOffType().getId() : null)
                 .timeOffTypeName(allocation.getTimeOffType() != null ? allocation.getTimeOffType().getName() : null)

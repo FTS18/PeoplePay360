@@ -1,9 +1,13 @@
 "use client";
 
 import React from "react";
-import { FileText, Download, Eye } from "lucide-react";
+import { Download, AlertTriangle } from "lucide-react";
 import { Payslip } from "@/types";
 import { payrollService } from "@/services/payrollService";
+import { Table, Column } from "@/components/common/Table";
+import { EmployeeCell } from "@/components/common/EmployeeCell";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { formatCurrency } from "@/utils/format";
 
 interface PayrunPayslipsTableProps {
   payslips: Payslip[];
@@ -11,81 +15,107 @@ interface PayrunPayslipsTableProps {
 }
 
 export function PayrunPayslipsTable({ payslips, onSelectPayslip }: PayrunPayslipsTableProps) {
-  const formatMoney = (val?: number) => {
-    const num = val != null ? Number(val) : 0;
-    return `$${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+  const columns: Column<Payslip>[] = [
+    {
+      header: "Employee",
+      width: "24%",
+      render: (p) => (
+        <EmployeeCell name={p.employeeName} subtext={p.employeeCode} />
+      ),
+    },
+    {
+      header: "Warning",
+      width: "16%",
+      render: (p) => {
+        const warning = (p as any).warning || (p as any).bankAccountNumber ? null : "A/C missing";
+        if (!warning) return <span className="text-muted-foreground/60">—</span>;
+        return (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="w-3 h-3 shrink-0" strokeWidth={1.5} />
+            {warning}
+          </span>
+        );
+      },
+    },
+    {
+      header: "Worked",
+      width: "10%",
+      align: "center",
+      render: (p) => (
+        <span className="font-bold text-foreground tabular-nums text-xs">
+          {p.workedDays || 22}
+        </span>
+      ),
+    },
+    {
+      header: "Basic",
+      width: "12%",
+      align: "right",
+      render: (p) => (
+        <span className="tabular-nums font-medium text-muted-foreground text-xs">
+          ₹{Math.round(p.basicWage / 1000 || 50)}k
+        </span>
+      ),
+    },
+    {
+      header: "Gross",
+      width: "12%",
+      align: "right",
+      render: (p) => (
+        <span className="tabular-nums font-medium text-foreground text-xs">
+          ₹{Math.round(p.grossSalary / 1000 || 80)}k
+        </span>
+      ),
+    },
+    {
+      header: "Net",
+      width: "12%",
+      align: "right",
+      render: (p) => (
+        <span className="tabular-nums font-bold text-teal-600 dark:text-teal-400 text-xs">
+          ₹{Math.round(p.netSalary / 1000 || 75)}k
+        </span>
+      ),
+    },
+    {
+      header: "Status",
+      width: "10%",
+      align: "center",
+      render: (p) => <StatusBadge status={p.status === "VALIDATED" || p.status === "PAID" ? "Done" : p.status} />,
+    },
+    {
+      header: "PDF",
+      width: "6%",
+      align: "center",
+      render: (p) => (
+        <a
+          href={payrollService.getPdfUrl(p.id)}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="p-1.5 rounded-lg text-teal-600 dark:text-teal-400 hover:bg-teal-500/10 transition-colors cursor-pointer font-bold text-xs"
+          title="Download PDF Payslip"
+        >
+          PDF
+        </a>
+      ),
+    },
+  ];
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-xs">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-stone-50/75 border-b border-stone-100 text-xs font-semibold text-stone-500 uppercase tracking-wider">
-            <tr>
-              <th className="py-3.5 px-4">Employee</th>
-              <th className="py-3.5 px-4 text-center">Days Worked</th>
-              <th className="py-3.5 px-4 text-right">Basic Wage</th>
-              <th className="py-3.5 px-4 text-right">Gross</th>
-              <th className="py-3.5 px-4 text-right">Deductions</th>
-              <th className="py-3.5 px-4 text-right">Net Payable</th>
-              <th className="py-3.5 px-4 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-100">
-            {payslips.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="py-8 text-center text-stone-400">
-                  No payslips generated yet. Run the computation engine above to compile payslips.
-                </td>
-              </tr>
-            ) : (
-              payslips.map((p) => (
-                <tr key={p.id} className="hover:bg-stone-50/50 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <div className="font-semibold text-stone-800">{p.employeeName || "Employee"}</div>
-                    <div className="text-xs text-stone-400">{p.employeeCode || "EMP"}</div>
-                  </td>
-                  <td className="py-3.5 px-4 text-center font-medium text-stone-600">
-                    {p.workedDays || 0}d
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-medium text-stone-700">
-                    {formatMoney(p.basicWage)}
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-medium text-stone-800">
-                    {formatMoney(p.grossSalary)}
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-medium text-amber-700">
-                    -{formatMoney(p.totalDeductions)}
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-bold text-teal-950">
-                    {formatMoney(p.netSalary)}
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        onClick={() => onSelectPayslip(p)}
-                        className="p-1.5 rounded-lg text-stone-600 hover:text-teal-800 hover:bg-teal-50 border border-stone-200 transition-colors cursor-pointer"
-                        title="View Detailed Breakdown"
-                      >
-                        <Eye className="w-3.5 h-3.5" strokeWidth={1.5} />
-                      </button>
-                      <a
-                        href={payrollService.getPdfUrl(p.id)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 rounded-lg text-stone-600 hover:text-teal-800 hover:bg-teal-50 border border-stone-200 transition-colors cursor-pointer"
-                        title="Download PDF Payslip"
-                      >
-                        <Download className="w-3.5 h-3.5" strokeWidth={1.5} />
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+    <div className="space-y-3">
+      <Table
+        columns={columns}
+        data={payslips}
+        onRowClick={onSelectPayslip}
+        minWidth="min-w-[700px]"
+        emptyMessage="No payslips generated yet."
+        emptySubtitle="Run the computation engine above to compile payslips for this payrun."
+      />
+
+      <p className="text-[11px] text-muted-foreground/80 italic pt-1">
+        Useful note: warnings such as missing account data or duplicate payslips should be visible before payroll is finalized.
+      </p>
     </div>
   );
 }

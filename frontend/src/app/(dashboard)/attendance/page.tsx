@@ -1,25 +1,35 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { UserCheck, AlertTriangle, Clock, RefreshCw } from "lucide-react";
-import { attendanceService } from "@/services/attendanceService";
+import { attendanceService, AttendanceStats } from "@/services/attendanceService";
 import { AttendanceRecord } from "@/types";
 import { AttendancePunchClock } from "@/components/modules/attendance/AttendancePunchClock";
 import { AttendanceTable } from "@/components/modules/attendance/AttendanceTable";
 import { AttendanceOverrideModal } from "@/components/modules/attendance/AttendanceOverrideModal";
+import { AttendanceDetailModal } from "@/components/modules/attendance/AttendanceDetailModal";
 import { useAuth } from "@/context/AuthContext";
-
 import { apiClient } from "@/services/apiClient";
 
-export default function AttendancePage() {
+function AttendanceContent() {
   const { user, role } = useAuth();
   const searchParams = useSearchParams();
   const employeeIdParam = searchParams?.get("employeeId") || "";
 
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [stats, setStats] = useState<AttendanceStats>({
+    totalEntries: 0,
+    presentCount: 0,
+    exceptionCount: 0,
+    totalWorkedHours: 0,
+  });
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [detailRecord, setDetailRecord] = useState<AttendanceRecord | null>(null);
+
+  const pageParam = parseInt(searchParams?.get("page") || "0", 10);
+  const [totalPages, setTotalPages] = useState(0);
 
   const displayedRecords = React.useMemo(() => {
     if (role === "EMPLOYEE" && user) {
@@ -35,10 +45,22 @@ export default function AttendancePage() {
   }, [records, role, user]);
 
   const fetchRecords = async () => {
-    if (records.length === 0) setLoading(true);
+    setLoading(true);
     try {
-      const res = await attendanceService.getAll(0, 25, employeeIdParam || undefined);
-      if (res?.content) setRecords(res.content);
+      const [res, statsRes] = await Promise.all([
+        attendanceService.getAll(pageParam, 25, employeeIdParam || undefined),
+        attendanceService.getStats(employeeIdParam || undefined),
+      ]);
+      if (res?.content) {
+        setRecords(res.content);
+        setTotalPages(res.totalPages || 0);
+      } else if (Array.isArray(res)) {
+        setRecords(res);
+        setTotalPages(1);
+      }
+      if (statsRes) {
+        setStats(statsRes);
+      }
     } catch (err) {
       console.error("Failed to load attendance logs", err);
     } finally {
@@ -47,71 +69,67 @@ export default function AttendancePage() {
   };
 
   useEffect(() => {
-    const params = new URLSearchParams({ page: "0", size: "25" });
-    if (employeeIdParam) params.append("employeeId", employeeIdParam);
-    const cached = apiClient.getFromCache<any>(`/attendance?${params.toString()}`);
-    if (cached?.content && cached.content.length > 0) {
-      setRecords(cached.content);
-      setLoading(false);
-    }
     fetchRecords();
-  }, [employeeIdParam]);
+  }, [employeeIdParam, pageParam]);
 
   const handleOverrideSaved = (updated: AttendanceRecord) => {
     setRecords((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    fetchRecords();
   };
-
-  const presentCount = displayedRecords.filter((r) => r.status === "PRESENT").length;
-  const exceptionCount = displayedRecords.filter((r) => r.status === "EXCEPTION" || r.status === "HALF_DAY").length;
-  const totalHours = displayedRecords.reduce((acc, r) => acc + (Number(r.workedHours) || 0), 0);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-stone-900">Attendance & Shifts</h1>
-          <p className="text-xs text-stone-500 mt-0.5">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">Attendance & Shifts</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
             Real-time biometric punch terminal, scheduled shift compliance, and supervisor audit logs.
           </p>
         </div>
         <button
           onClick={fetchRecords}
           disabled={loading}
-          className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-stone-50 text-stone-700 text-xs font-medium rounded-xl border border-stone-200 shadow-xs cursor-pointer"
+          className="apple-press self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-2 bg-card hover:bg-muted text-foreground text-xs font-semibold rounded-full border border-stone-300/80 dark:border-stone-700/80 shadow-apple-sm cursor-pointer transition-all"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} strokeWidth={1.5} />
-          Refresh Feed
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-teal-600" : ""}`} strokeWidth={1.5} />
+          <span>Refresh Feed</span>
         </button>
       </div>
 
       {/* KPI Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-stone-200/80 p-4 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-stone-500">
+        <div className="bg-card rounded-2xl border border-[var(--border)] dark:border-[var(--border-subtle)] p-5 shadow-apple-sm hover:shadow-apple-md transition-all">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Logged Entries</span>
-            <UserCheck className="w-4 h-4 text-teal-600" strokeWidth={1.5} />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/20">
+              <UserCheck className="w-4 h-4" strokeWidth={1.5} />
+            </div>
           </div>
-          <div className="text-2xl font-bold text-stone-900 mt-2">{records.length}</div>
-          <div className="text-xs text-emerald-600 mt-1 font-medium">{presentCount} Regular Shifts</div>
+          <div suppressHydrationWarning className="text-2xl font-bold text-foreground mt-2 tabular-nums">{stats.totalEntries.toLocaleString()}</div>
+          <div className="text-xs text-teal-600 dark:text-teal-400 mt-1 font-medium">{stats.presentCount.toLocaleString()} Regular Shifts</div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-stone-200/80 p-4 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-stone-500">
+        <div className="bg-card rounded-2xl border border-[var(--border)] dark:border-[var(--border-subtle)] p-5 shadow-apple-sm hover:shadow-apple-md transition-all">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Exceptions & Half-Days</span>
-            <AlertTriangle className="w-4 h-4 text-amber-600" strokeWidth={1.5} />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              <AlertTriangle className="w-4 h-4" strokeWidth={1.5} />
+            </div>
           </div>
-          <div className="text-2xl font-bold text-stone-900 mt-2">{exceptionCount}</div>
-          <div className="text-xs text-stone-500 mt-1 font-medium">Flagged for Audit</div>
+          <div suppressHydrationWarning className="text-2xl font-bold text-foreground mt-2 tabular-nums">{stats.exceptionCount.toLocaleString()}</div>
+          <div className="text-xs text-muted-foreground mt-1 font-medium">Flagged for Supervisor Audit</div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-stone-200/80 p-4 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-stone-500">
+        <div className="bg-card rounded-2xl border border-[var(--border)] dark:border-[var(--border-subtle)] p-5 shadow-apple-sm hover:shadow-apple-md transition-all">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Cumulative Worked Hours</span>
-            <Clock className="w-4 h-4 text-teal-700" strokeWidth={1.5} />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/20">
+              <Clock className="w-4 h-4" strokeWidth={1.5} />
+            </div>
           </div>
-          <div className="text-2xl font-bold text-stone-900 mt-2">{totalHours.toFixed(1)}h</div>
-          <div className="text-xs text-stone-500 mt-1 font-medium">Standard 8h Shift Basis</div>
+          <div suppressHydrationWarning className="text-2xl font-bold text-foreground mt-2 tabular-nums">{Number(stats.totalWorkedHours || 0).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h</div>
+          <div className="text-xs text-muted-foreground mt-1 font-medium">Standard 8h Shift Basis</div>
         </div>
       </div>
 
@@ -124,9 +142,20 @@ export default function AttendancePage() {
           <AttendanceTable
             records={displayedRecords}
             onOpenOverride={(rec) => setSelectedRecord(rec)}
+            onRowClick={(rec) => setDetailRecord(rec)}
+            pagination={{ currentPage: pageParam, totalPages }}
           />
         </div>
       </div>
+
+      {/* Attendance Form View Modal */}
+      {detailRecord && (
+        <AttendanceDetailModal
+          record={detailRecord}
+          onClose={() => setDetailRecord(null)}
+          onOpenEdit={(rec) => setSelectedRecord(rec)}
+        />
+      )}
 
       {/* Audit Override Modal */}
       {selectedRecord && (
@@ -139,3 +168,23 @@ export default function AttendancePage() {
     </div>
   );
 }
+
+export default function AttendancePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <div className="h-8 w-48 rounded-lg bg-[var(--muted)] animate-pulse" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="h-28 rounded-2xl bg-[var(--card)] border border-[var(--border)] animate-pulse" />
+            <div className="h-28 rounded-2xl bg-[var(--card)] border border-[var(--border)] animate-pulse" />
+            <div className="h-28 rounded-2xl bg-[var(--card)] border border-[var(--border)] animate-pulse" />
+          </div>
+        </div>
+      }
+    >
+      <AttendanceContent />
+    </Suspense>
+  );
+}
+

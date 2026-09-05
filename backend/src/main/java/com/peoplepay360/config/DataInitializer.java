@@ -12,18 +12,16 @@ import org.springframework.stereotype.Component;
 public class DataInitializer implements CommandLineRunner {
 
     private final EmployeeRepository employeeRepository;
-    private final UserAndOrgSeeder userAndOrgSeeder;
-    private final PayrollAndContractSeeder payrollAndContractSeeder;
+    private final EnterpriseDataSeeder enterpriseDataSeeder;
 
     @Override
     public void run(String... args) {
-        if (employeeRepository.count() == 0) {
-            log.info("Fresh database detected. Initializing representative dataset for PeoplePay360...");
-            userAndOrgSeeder.seedUsersAndOrg();
-            payrollAndContractSeeder.seedPayrollAndContracts();
-            log.info("PeoplePay360 dataset initialized successfully across all modules.");
+        if (employeeRepository.count() < 10) {
+            log.info("Fresh database detected. Seeding full enterprise dataset (~260 employees)...");
+            enterpriseDataSeeder.seedCompleteEnterprise();
+            log.info("Enterprise dataset initialized.");
         } else {
-            log.info("Database already contains records. Skipping seed data generation.");
+            log.info("Database already populated ({} employees). Skipping seed.", employeeRepository.count());
         }
     }
 }

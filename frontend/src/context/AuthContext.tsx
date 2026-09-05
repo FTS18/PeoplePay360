@@ -14,19 +14,19 @@ interface AuthContextType {
 }
 
 const DEFAULT_DEMO_USER: UserSession = {
-  id: "00000000-0000-0000-0000-000000000003",
+  id: "3913c49f-ed1d-452f-a888-742d2ea048b8",
   email: "payrollmanager@peoplepay360.com",
-  firstName: "Michael",
-  lastName: "Scott",
+  firstName: "Rajesh",
+  lastName: "Sharma",
   role: "HR_PAYROLL_MANAGER",
 };
 
 const ROLE_PROFILES: Record<Role, { email: string; pass: string; name: string; id: string }> = {
-  ADMIN: { id: "00000000-0000-0000-0000-000000000001", email: "admin@peoplepay360.com", pass: "Admin@123", name: "System Admin" },
-  HR_MANAGER: { id: "00000000-0000-0000-0000-000000000002", email: "hrmanager@peoplepay360.com", pass: "HrManager@123", name: "Sarah Connor" },
-  HR_PAYROLL_MANAGER: { id: "00000000-0000-0000-0000-000000000003", email: "payrollmanager@peoplepay360.com", pass: "PayrollManager@123", name: "Michael Scott" },
-  HR_PAYROLL_USER: { id: "00000000-0000-0000-0000-000000000004", email: "payrolluser@peoplepay360.com", pass: "PayrollUser@123", name: "Dwight Schrute" },
-  EMPLOYEE: { id: "00000000-0000-0000-0000-000000000005", email: "john.doe@peoplepay360.com", pass: "Employee@123", name: "John Doe" },
+  ADMIN: { id: "daed6b24-c7fd-4738-9228-71b5c871e17a", email: "admin@peoplepay360.com", pass: "Admin@123", name: "Aarav Sharma" },
+  HR_MANAGER: { id: "8c1952f1-3943-4521-9602-086aefdcbdd9", email: "hrmanager@peoplepay360.com", pass: "HrManager@123", name: "Priya Nair" },
+  HR_PAYROLL_MANAGER: { id: "3913c49f-ed1d-452f-a888-742d2ea048b8", email: "payrollmanager@peoplepay360.com", pass: "PayrollManager@123", name: "Rajesh Sharma" },
+  HR_PAYROLL_USER: { id: "75056e7b-1aeb-4bb1-b2af-8d406e8222fa", email: "payrolluser@peoplepay360.com", pass: "PayrollUser@123", name: "Amit Verma" },
+  EMPLOYEE: { id: "83264985-a4ae-4609-9886-4bfaed2bc76d", email: "john.doe@peoplepay360.com", pass: "Employee@123", name: "Rahul Sharma" },
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,11 +35,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserSession | null>(null);
 
   useEffect(() => {
-    // Hydration-safe initial local storage read
+    // Hydration-safe initial local storage read with stale profile migration
+    const loggedOut = localStorage.getItem("peoplepay_logged_out") === "true";
     const saved = localStorage.getItem("peoplepay_user");
+
+    if (loggedOut) {
+      setUser(null);
+      return;
+    }
+
     if (saved) {
       try {
-        setUser(JSON.parse(saved));
+        const parsed: UserSession = JSON.parse(saved);
+        const matchingProfile = ROLE_PROFILES[parsed.role as Role];
+        if (
+          matchingProfile &&
+          (parsed.firstName === "Sarah" ||
+            parsed.firstName === "Michael" ||
+            parsed.firstName === "Dwight" ||
+            parsed.firstName === "John" ||
+            parsed.firstName === "Jane" ||
+            parsed.firstName === "System")
+        ) {
+          const [fName, ...lNames] = matchingProfile.name.split(" ");
+          parsed.firstName = fName;
+          parsed.lastName = lNames.join(" ");
+          parsed.email = matchingProfile.email;
+          localStorage.setItem("peoplepay_user", JSON.stringify(parsed));
+        }
+        setUser(parsed);
       } catch {
         setUser(DEFAULT_DEMO_USER);
       }
@@ -50,18 +74,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = (session: UserSession) => {
+    localStorage.removeItem("peoplepay_logged_out");
     setUser(session);
     localStorage.setItem("peoplepay_user", JSON.stringify(session));
     if (session.token) {
       localStorage.setItem("peoplepay_token", session.token);
     }
+    if (session.refreshToken) {
+      localStorage.setItem("peoplepay_refresh_token", session.refreshToken);
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("peoplepay_user");
-    localStorage.removeItem("peoplepay_token");
-    apiClient.clearCache();
+  const logout = async () => {
+    try {
+      const refreshToken = typeof window !== "undefined" ? localStorage.getItem("peoplepay_refresh_token") : null;
+      await apiClient.post("/auth/logout", { refreshToken }).catch(() => {});
+    } catch {
+      // Graceful degradation on network error
+    } finally {
+      setUser(null);
+      localStorage.setItem("peoplepay_logged_out", "true");
+      localStorage.removeItem("peoplepay_user");
+      localStorage.removeItem("peoplepay_token");
+      localStorage.removeItem("peoplepay_refresh_token");
+      apiClient.clearCache();
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+    }
   };
 
   const switchRole = async (newRole: Role) => {
@@ -78,8 +118,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (res.ok) {
         const json = await res.json();
         const token = json?.data?.accessToken;
+        const refreshToken = json?.data?.refreshToken;
         if (token) {
           localStorage.setItem("peoplepay_token", token);
+        }
+        if (refreshToken) {
+          localStorage.setItem("peoplepay_refresh_token", refreshToken);
         }
       }
     } catch {

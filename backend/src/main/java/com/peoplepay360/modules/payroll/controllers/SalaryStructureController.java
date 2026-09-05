@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,13 +37,15 @@ public class SalaryStructureController {
     private final SalaryRuleRepository ruleRepository;
 
     @GetMapping
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<List<SalaryStructureResponse>>> getAllStructures() {
-        List<SalaryStructure> structures = structureRepository.findAll();
+        List<SalaryStructure> structures = structureRepository.findAllWithRules();
         List<SalaryStructureResponse> responses = structures.stream().map(SalaryStructureResponse::from).toList();
         return ResponseEntity.ok(ApiResponse.ok(responses));
     }
 
     @GetMapping("/{id}")
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<SalaryStructureResponse>> getStructureById(@PathVariable UUID id) {
         SalaryStructure structure = structureRepository.findWithActiveRulesById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("SalaryStructure", "id", id));
@@ -109,6 +112,30 @@ public class SalaryStructureController {
         SalaryRule saved = ruleRepository.save(rule);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Salary rule added", SalaryRuleResponse.from(saved)));
+    }
+
+    @PutMapping("/rules/{ruleId}")
+    @Transactional
+    @PreAuthorize("hasAnyRole('HR_PAYROLL_MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<SalaryRuleResponse>> updateRule(
+            @PathVariable UUID ruleId,
+            @Valid @RequestBody CreateSalaryRuleRequest request
+    ) {
+        SalaryRule rule = ruleRepository.findById(ruleId)
+                .orElseThrow(() -> new ResourceNotFoundException("SalaryRule", "id", ruleId));
+
+        rule.setName(request.getName());
+        rule.setCode(request.getCode());
+        rule.setCategory(request.getCategory());
+        rule.setSequence(request.getSequence());
+        rule.setComputationType(request.getComputationType());
+        rule.setFixedAmount(request.getFixedAmount());
+        rule.setPercentage(request.getPercentage());
+        rule.setPercentageBaseCode(request.getPercentageBaseCode());
+        rule.setFormula(request.getFormula());
+
+        SalaryRule saved = ruleRepository.save(rule);
+        return ResponseEntity.ok(ApiResponse.ok("Salary rule updated", SalaryRuleResponse.from(saved)));
     }
 
     @DeleteMapping("/rules/{ruleId}")

@@ -1,6 +1,10 @@
 package com.peoplepay360.modules.payroll.engine;
 
 import com.peoplepay360.exception.PayrollCalculationException;
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.Expression;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -15,12 +19,34 @@ import java.util.regex.Pattern;
 public class FormulaEvaluator {
 
     private static final Pattern TOKEN_PATTERN = Pattern.compile("\\s*([A-Za-z_][A-Za-z0-9_]*|\\d+(\\.\\d+)?|[+\\-*/()])\\s*");
+    private final SpelExpressionParser spelParser = new SpelExpressionParser();
 
     public BigDecimal evaluate(String formula, Map<String, BigDecimal> context) {
         if (formula == null || formula.trim().isEmpty()) {
             return BigDecimal.ZERO;
         }
 
+        // 1. Try SpEL expression parsing for conditionals, functions, and standard formulas
+        try {
+            EvaluationContext spelContext = SimpleEvaluationContext.forReadOnlyDataBinding().build();
+            context.forEach((k, v) -> {
+                spelContext.setVariable(k, v);
+                spelContext.setVariable(k.toLowerCase(), v);
+            });
+
+            Expression expression = spelParser.parseExpression(formula);
+            Object result = expression.getValue(spelContext);
+
+            if (result instanceof BigDecimal bd) {
+                return bd.setScale(2, RoundingMode.HALF_UP);
+            } else if (result instanceof Number num) {
+                return BigDecimal.valueOf(num.doubleValue()).setScale(2, RoundingMode.HALF_UP);
+            }
+        } catch (Exception ignored) {
+            // Fallback to token infix evaluator if formula uses custom simple syntax
+        }
+
+        // 2. Token infix math evaluator fallback
         Deque<BigDecimal> values = new ArrayDeque<>();
         Deque<Character> operators = new ArrayDeque<>();
         Matcher matcher = TOKEN_PATTERN.matcher(formula);

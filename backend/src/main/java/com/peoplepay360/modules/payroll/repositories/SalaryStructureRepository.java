@@ -23,4 +23,9 @@ public interface SalaryStructureRepository extends JpaRepository<SalaryStructure
            "LEFT JOIN FETCH s.rules r " +
            "WHERE s.id = :id AND (r IS NULL OR r.active = true)")
     Optional<SalaryStructure> findWithActiveRulesById(@Param("id") UUID id);
+
+    @Query("SELECT DISTINCT s FROM SalaryStructure s " +
+           "LEFT JOIN FETCH s.rules r " +
+           "ORDER BY s.name")
+    List<SalaryStructure> findAllWithRules();
 }

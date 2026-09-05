@@ -1,115 +1,277 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CreditCard, Lock, Mail, ArrowRight } from "lucide-react";
+import { CreditCard, Lock, Mail, ArrowRight, Sparkles, UserCircle2, Briefcase, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Role } from "@/types";
+import { ROUTES } from "@/config/routes";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { switchRole } = useAuth();
-  const [email, setEmail] = useState("michael.scott@dundermifflin.com");
-  const [password, setPassword] = useState("••••••••");
+  const { switchRole, login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [selectedRole, setSelectedRole] = useState<Role>("HR_PAYROLL_MANAGER");
+  const [demoUsers, setDemoUsers] = useState<any[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
+  const FALLBACK_DEMO_USERS: Record<Role, any[]> = {
+    ADMIN: [
+      { id: "daed6b24-c7fd-4738-9228-71b5c871e17a", email: "admin@peoplepay360.com", fullName: "Aarav Sharma", employeeCode: "EMP001", jobPosition: "System Administrator", role: "ADMIN" }
+    ],
+    HR_PAYROLL_MANAGER: [
+      { id: "3913c49f-ed1d-452f-a888-742d2ea048b8", email: "payrollmanager@peoplepay360.com", fullName: "Rajesh Sharma", employeeCode: "EMP002", jobPosition: "Payroll Lead Manager", role: "HR_PAYROLL_MANAGER" }
+    ],
+    HR_MANAGER: [
+      { id: "8c1952f1-3943-4521-9602-086aefdcbdd9", email: "hrmanager@peoplepay360.com", fullName: "Priya Nair", employeeCode: "EMP003", jobPosition: "HR Director", role: "HR_MANAGER" }
+    ],
+    HR_PAYROLL_USER: [
+      { id: "75056e7b-1aeb-4bb1-b2af-8d406e8222fa", email: "payrolluser@peoplepay360.com", fullName: "Amit Verma", employeeCode: "EMP005", jobPosition: "Payroll Specialist", role: "HR_PAYROLL_USER" }
+    ],
+    EMPLOYEE: [
+      { id: "83264985-a4ae-4609-9886-4bfaed2bc76d", email: "john.doe@peoplepay360.com", fullName: "Rahul Sharma", employeeCode: "EMP004", jobPosition: "Senior Engineer", role: "EMPLOYEE" }
+    ],
+  };
+
+  React.useEffect(() => {
+    const fetchUsers = async () => {
+      setIsLoadingUsers(true);
+      try {
+        const res = await fetch(`/api/v1/auth/demo-users?role=${selectedRole}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json?.data) && json.data.length > 0) {
+            setDemoUsers(json.data);
+            return;
+          }
+        }
+        setDemoUsers(FALLBACK_DEMO_USERS[selectedRole] || []);
+      } catch {
+        setDemoUsers(FALLBACK_DEMO_USERS[selectedRole] || []);
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    };
+    fetchUsers();
+  }, [selectedRole]);
+
+  const performLogin = async (loginEmail: string, loginPass: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail, password: loginPass }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const userData = json?.data?.user;
+        const accessToken = json?.data?.accessToken;
+        const refreshToken = json?.data?.refreshToken;
+        
+        if (userData) {
+          login({
+            id: userData.id,
+            email: userData.email,
+            firstName: userData.fullName.split(" ")[0],
+            lastName: userData.fullName.split(" ")[1] || "",
+            role: userData.role,
+            token: accessToken,
+            refreshToken: refreshToken,
+          });
+          router.push("/dashboard");
+        }
+      } else {
+        const errJson = await res.json().catch(() => null);
+        setError(errJson?.message || "Invalid credentials. Please verify your work email and password.");
+        setIsLoading(false);
+      }
+    } catch {
+      setError("Unable to connect to authentication server. Please check your network connection.");
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/dashboard");
+    await performLogin(email, password);
   };
 
   const handleQuickRole = (role: Role, roleEmail: string) => {
     setEmail(roleEmail);
-    switchRole(role);
-    router.push("/dashboard");
+    let demoPass = "Employee@123";
+    if (role === "ADMIN") demoPass = "Admin@123";
+    if (role === "HR_MANAGER") demoPass = "HrManager@123";
+    if (role === "HR_PAYROLL_MANAGER") demoPass = "PayrollManager@123";
+    
+    setPassword(demoPass);
+    performLogin(roleEmail, demoPass);
   };
 
   return (
-    <div className="flex min-h-[75vh] items-center justify-center">
-      <div className="w-full max-w-md space-y-6 rounded-2xl border border-(--border) bg-(--card) p-8 shadow-xs">
-        <div className="text-center space-y-2">
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-(--primary) text-(--primary-foreground)">
-            <CreditCard className="h-5 w-5" strokeWidth={1.5} />
-          </div>
-          <h1 className="text-xl font-bold tracking-tight text-(--foreground)">PeoplePay360</h1>
-          <p className="text-xs text-(--muted-foreground)">
-            Enterprise Human Resource & Payroll Operations
-          </p>
-        </div>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-stone-50 dark:bg-[#0a0a0a]">
+      {/* Ambient Background Glows */}
+      <div className="pointer-events-none absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-teal-500/20 blur-[120px] mix-blend-multiply dark:mix-blend-screen opacity-70 animate-pulse-slow" />
+      <div className="pointer-events-none absolute top-1/4 -right-20 h-[600px] w-[600px] rounded-full bg-emerald-500/10 blur-[150px] mix-blend-multiply dark:mix-blend-screen opacity-50" />
+      <div className="pointer-events-none absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-sky-500/15 blur-[120px] mix-blend-multiply dark:mix-blend-screen opacity-60" />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-(--foreground)">Work Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-2.5 h-4 w-4 text-(--muted-foreground)" strokeWidth={1.5} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full rounded-lg border border-(--border) bg-(--background) py-2 pl-9 pr-3 text-xs text-(--foreground) focus:border-(--primary) focus:outline-hidden"
-              />
+      {/* Main Glassmorphism Card */}
+      <div className="relative z-10 w-full max-w-[420px] space-y-8 rounded-[32px] border border-white/60 dark:border-white/10 bg-white/70 dark:bg-black/40 p-8 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
+        
+        {/* Header */}
+        <div className="flex flex-col items-center text-center space-y-3">
+          <div className="relative inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-700 text-white shadow-lg shadow-teal-500/30 ring-1 ring-white/20">
+            <CreditCard className="h-7 w-7" strokeWidth={1.5} />
+            <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 ring-2 ring-white dark:ring-black">
+              <Sparkles className="h-2.5 w-2.5 text-amber-900" strokeWidth={2.5} />
             </div>
           </div>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-stone-900 dark:text-white">PeoplePay360</h1>
+            <p className="text-xs font-medium text-stone-500 dark:text-stone-400">
+              Enterprise HR & Payroll Operations
+            </p>
+          </div>
+        </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-(--foreground)">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-2.5 h-4 w-4 text-(--muted-foreground)" strokeWidth={1.5} />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full rounded-lg border border-(--border) bg-(--background) py-2 pl-9 pr-3 text-xs text-(--foreground) focus:border-(--primary) focus:outline-hidden"
-              />
+        {error && (
+          <div className="flex items-start gap-2.5 rounded-2xl border border-red-500/25 bg-red-500/10 p-3.5 text-xs text-red-600 dark:text-red-400 animate-in fade-in">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" strokeWidth={1.5} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Login Form */}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold tracking-wide text-stone-500 dark:text-stone-400 uppercase ml-1">
+                Work Email
+              </label>
+              <div className="relative group">
+                <Mail className="absolute left-3.5 top-3 h-4 w-4 text-stone-400 group-focus-within:text-teal-500 transition-colors" strokeWidth={1.75} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="name@company.com"
+                  className="w-full rounded-xl border border-stone-200/80 dark:border-stone-800 bg-white/50 dark:bg-black/50 py-2.5 pl-10 pr-3.5 text-sm text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500/40 transition-all font-medium"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between ml-1">
+                <label className="text-[11px] font-bold tracking-wide text-stone-500 dark:text-stone-400 uppercase">
+                  Password
+                </label>
+                <Link href="#" className="text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:underline">
+                  Forgot?
+                </Link>
+              </div>
+              <div className="relative group">
+                <Lock className="absolute left-3.5 top-3 h-4 w-4 text-stone-400 group-focus-within:text-teal-500 transition-colors" strokeWidth={1.75} />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-stone-200/80 dark:border-stone-800 bg-white/50 dark:bg-black/50 py-2.5 pl-10 pr-3.5 text-sm text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500/40 transition-all font-medium tracking-widest"
+                />
+              </div>
             </div>
           </div>
 
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-(--primary) py-2.5 px-4 text-xs font-medium text-(--primary-foreground) hover:bg-(--primary)/90 shadow-xs transition-colors"
+            disabled={isLoading}
+            className="group relative w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 py-3 px-4 text-sm font-bold text-white shadow-lg shadow-teal-500/25 transition-all active:scale-[0.98] disabled:opacity-70 disabled:pointer-events-none"
           >
-            Sign In to Workspace
-            <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+            {isLoading ? "Authenticating..." : "Sign In to Workspace"}
+            {!isLoading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" strokeWidth={2} />}
           </button>
         </form>
 
-        <div className="border-t border-(--border) pt-4 space-y-2">
-          <p className="text-[11px] font-medium text-(--muted-foreground) text-center uppercase tracking-wider">
-            Quick Persona Switcher
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() =>
-                handleQuickRole("HR_PAYROLL_MANAGER", "michael.scott@dundermifflin.com")
-              }
-              className="p-2 rounded-lg border border-(--border) hover:bg-(--accent) text-[11px] font-medium text-left"
-            >
-              <div className="font-semibold text-(--foreground)">Payroll Manager</div>
-              <div className="text-(--muted-foreground) truncate">Michael Scott</div>
-            </button>
-            <button
-              onClick={() => handleQuickRole("HR_MANAGER", "dwight.schrute@dundermifflin.com")}
-              className="p-2 rounded-lg border border-(--border) hover:bg-(--accent) text-[11px] font-medium text-left"
-            >
-              <div className="font-semibold text-(--foreground)">HR Manager</div>
-              <div className="text-(--muted-foreground) truncate">Dwight Schrute</div>
-            </button>
-            <button
-              onClick={() => handleQuickRole("EMPLOYEE", "jim.halpert@dundermifflin.com")}
-              className="p-2 rounded-lg border border-(--border) hover:bg-(--accent) text-[11px] font-medium text-left"
-            >
-              <div className="font-semibold text-(--foreground)">Employee</div>
-              <div className="text-(--muted-foreground) truncate">Jim Halpert</div>
-            </button>
-            <button
-              onClick={() => handleQuickRole("ADMIN", "admin@dundermifflin.com")}
-              className="p-2 rounded-lg border border-(--border) hover:bg-(--accent) text-[11px] font-medium text-left"
-            >
-              <div className="font-semibold text-(--foreground)">System Admin</div>
-              <div className="text-(--muted-foreground) truncate">Root Security</div>
-            </button>
+        {/* Quick Persona Switcher */}
+        <div className="pt-2">
+          <div className="relative mb-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-stone-200 dark:border-stone-800"></div>
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-stone-50 dark:bg-[#0a0a0a] px-3 text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500 rounded-full">
+                Demo User Selector
+              </span>
+            </div>
           </div>
+
+          {/* Role Tabs */}
+          <div className="flex bg-stone-200/50 dark:bg-stone-900/50 p-1 rounded-xl mb-3">
+            {(["ADMIN", "HR_PAYROLL_MANAGER", "HR_MANAGER", "EMPLOYEE"] as Role[]).map((role) => (
+              <button
+                key={role}
+                type="button"
+                onClick={() => setSelectedRole(role)}
+                className={`flex-1 py-1.5 text-[10px] font-bold tracking-wider rounded-lg transition-all ${
+                  selectedRole === role
+                    ? "bg-white dark:bg-stone-800 text-teal-600 dark:text-teal-400 shadow-sm"
+                    : "text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
+                }`}
+              >
+                {role.replace("HR_PAYROLL_MANAGER", "PAYROLL").replace("HR_MANAGER", "HR")}
+              </button>
+            ))}
+          </div>
+
+          {/* Users List */}
+          <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-stone-300 dark:scrollbar-thumb-stone-700">
+            {isLoadingUsers ? (
+              <div className="text-center py-4 text-xs font-medium text-stone-400">Loading users...</div>
+            ) : demoUsers.length === 0 ? (
+              <div className="text-center py-4 text-xs font-medium text-stone-400">No users found for this role</div>
+            ) : (
+              demoUsers.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => handleQuickRole(u.role as Role, u.email)}
+                  className="w-full group flex items-center justify-between p-2.5 rounded-xl border border-stone-200/60 dark:border-stone-800/60 bg-white/40 dark:bg-white/[0.02] hover:bg-teal-50/50 dark:hover:bg-teal-500/10 hover:border-teal-200 dark:hover:border-teal-500/30 transition-all text-left active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="h-8 w-8 shrink-0 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-teal-700 dark:text-teal-400">
+                      <UserCircle2 className="h-5 w-5" strokeWidth={1.5} />
+                    </div>
+                    <div className="truncate">
+                      <div className="text-[11px] font-bold text-stone-900 dark:text-stone-100 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors truncate">
+                        {u.fullName} <span className="font-normal text-stone-400">({u.employeeCode})</span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Briefcase className="h-3 w-3 text-stone-400" />
+                        <div className="text-[10px] font-medium text-stone-500 dark:text-stone-400 truncate">
+                          {u.jobPosition}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="text-center text-xs font-medium text-stone-500 dark:text-stone-400 pt-2">
+          New employee?{" "}
+          <Link href={ROUTES.SIGNUP} className="font-bold text-teal-600 dark:text-teal-400 hover:text-teal-500 transition-colors">
+            Self-Onboard Here
+          </Link>
         </div>
       </div>
     </div>

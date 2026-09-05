@@ -107,6 +107,7 @@ public class Payslip extends BaseEntity {
 
     @OneToMany(mappedBy = "payslip", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sequence ASC")
+    @org.hibernate.annotations.BatchSize(size = 50)
     @Builder.Default
     private List<PayslipLine> lines = new ArrayList<>();
 

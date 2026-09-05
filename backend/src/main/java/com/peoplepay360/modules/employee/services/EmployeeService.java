@@ -2,9 +2,11 @@ package com.peoplepay360.modules.employee.services;
 
 import com.peoplepay360.common.PageResponse;
 import com.peoplepay360.common.enums.EmployeeStatus;
+import com.peoplepay360.common.enums.Role;
 import com.peoplepay360.exception.BusinessRuleViolationException;
 import com.peoplepay360.exception.ResourceNotFoundException;
 import com.peoplepay360.modules.employee.dto.requests.CreateEmployeeRequest;
+import com.peoplepay360.modules.employee.dto.requests.UpdateAccessRequest;
 import com.peoplepay360.modules.employee.dto.responses.EmployeeResponse;
 import com.peoplepay360.modules.employee.entities.Employee;
 import com.peoplepay360.modules.employee.repositories.EmployeeRepository;
@@ -35,9 +37,15 @@ public class EmployeeService {
         return EmployeeResponse.from(employee);
     }
 
-    public PageResponse<EmployeeResponse> getEmployees(String query, String department, EmployeeStatus status, Pageable pageable) {
+    public PageResponse<EmployeeResponse> getEmployees(String query, String department, EmployeeStatus status, Role role, Pageable pageable) {
         Page<Employee> page;
-        if (query != null && !query.isBlank()) {
+        boolean hasQuery = (query != null && !query.isBlank());
+
+        if (role != null && hasQuery) {
+            page = employeeRepository.searchByRoleAndQuery(role, query.trim(), pageable);
+        } else if (role != null) {
+            page = employeeRepository.findByRole(role, pageable);
+        } else if (hasQuery) {
             page = employeeRepository.searchEmployees(query.trim(), pageable);
         } else if (department != null && !department.isBlank() && status != null) {
             page = employeeRepository.findByDepartmentAndStatus(department, status, pageable);
@@ -147,6 +155,27 @@ public class EmployeeService {
             employee.setWorkingSchedule(schedule);
         }
 
+        return EmployeeResponse.from(employeeRepository.save(employee));
+    }
+
+    @Transactional
+    public EmployeeResponse updateAccess(UUID id, UpdateAccessRequest request, UUID requesterId) {
+        if (id.equals(requesterId)) {
+            throw new BusinessRuleViolationException("You cannot modify your own access role");
+        }
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", id));
+
+        // Prevent stripping the last ADMIN
+        if (employee.getRole() == Role.ADMIN && request.getRole() != Role.ADMIN) {
+            long adminCount = employeeRepository.countByRole(Role.ADMIN);
+            if (adminCount <= 1) {
+                throw new BusinessRuleViolationException("Cannot remove the only Admin account from the system");
+            }
+        }
+
+        employee.setRole(request.getRole());
+        employee.setStatus(request.isActive() ? EmployeeStatus.ACTIVE : EmployeeStatus.INACTIVE);
         return EmployeeResponse.from(employeeRepository.save(employee));
     }
 }

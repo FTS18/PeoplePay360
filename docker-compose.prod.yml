@@ -1,0 +1,50 @@
+# Production compose override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+#
+# Overrides the dev compose:
+#   - Uses `prod` build targets (multi-stage optimized images)
+#   - Removes source bind mounts
+#   - Strips debug ports and dev env vars
+#   - Adds restart policies and resource limits
+
+name: peoplepay360
+
+services:
+
+  postgres:
+    environment:
+      # Override with real secrets in production — use Docker secrets or env file
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in production}
+    # Don't expose postgres port to host in production
+    ports: !reset []
+
+  backend:
+    build:
+      target: prod             # uses the JRE-only production stage
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-peoplepay360}
+      DB_USER: ${DB_USER:-pp360user}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://yourdomain.com}
+      SPRING_PROFILES_ACTIVE: prod
+      JPA_DDL_AUTO: validate
+    # Remove the source volume mounts — prod image is self-contained
+    volumes: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  frontend:
+    build:
+      target: prod             # uses the standalone Next.js production stage
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_HOST: http://backend:8080
+      WATCHPACK_POLLING: !reset null  # not needed in prod
+    volumes: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 256m

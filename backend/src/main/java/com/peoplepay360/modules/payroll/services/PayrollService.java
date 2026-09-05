@@ -16,6 +16,7 @@ import com.peoplepay360.modules.payroll.entities.SalaryStructure;
 import com.peoplepay360.modules.payroll.repositories.PayrunRepository;
 import com.peoplepay360.modules.payroll.repositories.PayslipRepository;
 import com.peoplepay360.modules.payroll.repositories.SalaryStructureRepository;
+import com.peoplepay360.modules.timeoff.services.LeaveLedgerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,8 +27,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
-
 
 @Service
 @RequiredArgsConstructor
@@ -42,8 +41,10 @@ public class PayrollService {
     private final SalaryStructureRepository structureRepository;
     private final ContractRepository contractRepository;
     private final AttendanceRecordRepository attendanceRepository;
+    private final LeaveLedgerService leaveLedgerService;
     private final SalaryCalculationEngine calculationEngine;
     private final PayrollValidationScanner validationScanner;
+    private final com.peoplepay360.modules.dashboard.repositories.DashboardQueryRepository dashboardQueryRepository;
 
     @Transactional
     public Payrun createPayrunDraft(String name, UUID structureId, LocalDate start, LocalDate end) {
@@ -102,13 +103,37 @@ public class PayrollService {
                 continue;
             }
 
-            int workedDays = attendanceRepository.countWorkedDaysInPeriod(
+            int rawWorkedDays = attendanceRepository.countWorkedDaysInPeriod(
                     contract.getEmployee().getId(),
                     payrun.getPeriodStart(),
                     payrun.getPeriodEnd()
             );
 
-            Payslip payslip = calculationEngine.computePayslip(payrun, contract.getEmployee(), contract, structure, workedDays);
+            int unpaidLeaveDays = leaveLedgerService.calculateClippedLeaveDays(
+                    contract.getEmployee().getId(),
+                    payrun.getPeriodStart(),
+                    payrun.getPeriodEnd(),
+                    false
+            );
+
+            int paidLeaveDays = leaveLedgerService.calculateClippedLeaveDays(
+                    contract.getEmployee().getId(),
+                    payrun.getPeriodStart(),
+                    payrun.getPeriodEnd(),
+                    true
+            );
+
+            int effectiveWorkedDays = rawWorkedDays + paidLeaveDays;
+
+            Payslip payslip = calculationEngine.computePayslip(
+                    payrun,
+                    contract.getEmployee(),
+                    contract,
+                    structure,
+                    effectiveWorkedDays,
+                    unpaidLeaveDays,
+                    paidLeaveDays
+            );
             payrun.addPayslip(payslip);
 
             totalBasic = totalBasic.add(payslip.getBasicWage());
@@ -179,6 +204,16 @@ public class PayrollService {
             payslip.setStatus(PayslipStatus.PAID);
         }
 
-        return payrunRepository.save(payrun);
+        Payrun saved = payrunRepository.save(payrun);
+
+        // Concurrently refresh Enterprise PostgreSQL Materialized Views for sub-10ms dashboard scaling
+        try {
+            dashboardQueryRepository.refreshDepartmentCostView();
+            dashboardQueryRepository.refreshMonthlySummaryView();
+        } catch (Exception e) {
+            // Materialized views will catch up on next refresh if concurrent lock or migration in flight
+        }
+
+        return saved;
     }
 }

@@ -52,12 +52,12 @@ public class UserAndOrgSeeder {
         }
         WorkingSchedule savedSchedule = scheduleService.saveSchedule(stdSchedule);
 
-        createEmployee("EMP001", "System", "Admin", "admin@peoplepay360.com", "Admin@123", "Executive", "Platform Admin", Role.ADMIN, savedSchedule);
-        createEmployee("EMP002", "Sarah", "Connor", "hrmanager@peoplepay360.com", "HrManager@123", "Human Resources", "HR Manager", Role.HR_MANAGER, savedSchedule);
-        createEmployee("EMP003", "Michael", "Scott", "payrollmanager@peoplepay360.com", "PayrollManager@123", "Finance", "HR Payroll Manager", Role.HR_PAYROLL_MANAGER, savedSchedule);
-        createEmployee("EMP004", "Dwight", "Schrute", "payrolluser@peoplepay360.com", "PayrollUser@123", "Finance", "Payroll Officer", Role.HR_PAYROLL_USER, savedSchedule);
-        createEmployee("EMP005", "John", "Doe", "john.doe@peoplepay360.com", "Employee@123", "Engineering", "Senior Software Engineer", Role.EMPLOYEE, savedSchedule);
-        createEmployee("EMP006", "Jane", "Smith", "jane.smith@peoplepay360.com", "Employee@123", "Product", "Product Manager", Role.EMPLOYEE, savedSchedule);
+        createEmployee("EMP001", "Aarav", "Sharma", "admin@peoplepay360.com", "Admin@123", "Executive", "Platform Admin", Role.ADMIN, savedSchedule);
+        createEmployee("EMP002", "Priya", "Nair", "hrmanager@peoplepay360.com", "HrManager@123", "Human Resources", "HR Manager", Role.HR_MANAGER, savedSchedule);
+        createEmployee("EMP003", "Rajesh", "Sharma", "payrollmanager@peoplepay360.com", "PayrollManager@123", "Finance", "HR Payroll Manager", Role.HR_PAYROLL_MANAGER, savedSchedule);
+        createEmployee("EMP004", "Amit", "Verma", "payrolluser@peoplepay360.com", "PayrollUser@123", "Finance", "Payroll Officer", Role.HR_PAYROLL_USER, savedSchedule);
+        createEmployee("EMP005", "Rahul", "Sharma", "john.doe@peoplepay360.com", "Employee@123", "Engineering", "Senior Software Engineer", Role.EMPLOYEE, savedSchedule);
+        createEmployee("EMP006", "Ananya", "Iyer", "jane.smith@peoplepay360.com", "Employee@123", "Product", "Product Manager", Role.EMPLOYEE, savedSchedule);
 
         timeOffTypeRepository.save(TimeOffType.builder()
                 .name("Paid Time Off")
@@ -105,10 +105,10 @@ public class UserAndOrgSeeder {
                 .role(role)
                 .status(EmployeeStatus.ACTIVE)
                 .workingSchedule(schedule)
-                .bankAccountNumber("ACC-" + code + "-9988")
-                .bankName("First Enterprise Bank")
-                .bankIdentifierCode("FEB00012")
-                .identificationNumber("TAX-ID-" + code)
+                .bankAccountNumber("50100" + code.replace("EMP", "") + "9876")
+                .bankName("HDFC Bank")
+                .bankIdentifierCode("HDFC000" + code.replace("EMP", ""))
+                .identificationNumber("PAN" + code + "IND")
                 .joiningDate(LocalDate.now().minusMonths(6))
                 .build();
         employeeRepository.save(emp);

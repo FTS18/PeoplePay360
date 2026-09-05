@@ -1,0 +1,135 @@
+# Development compose — hot reload on all services
+# Usage: docker compose up --build
+#
+# Hot reload behaviour:
+#   backend  — spring-boot-devtools watches for class changes via Maven recompile
+#   frontend — next dev with WATCHPACK_POLLING=true (required on Windows bind mounts)
+#   postgres — persists data in a named volume (data survives container restarts)
+
+name: peoplepay360
+
+services:
+
+  # ── PostgreSQL ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:17-alpine
+    container_name: pp360_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: peoplepay360
+      POSTGRES_USER: pp360user
+      POSTGRES_PASSWORD: pp360pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pp360user -d peoplepay360"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - pp360_net
+
+  # ── Redis In-Memory Cache ──────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: pp360_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - pp360_net
+
+  # ── Spring Boot Backend ───────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev               # uses the `dev` stage (maven spring-boot:run)
+    container_name: pp360_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/peoplepay360
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: peoplepay360
+      DB_USER: pp360user
+      DB_PASSWORD: pp360pass
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SERVER_PORT: 8080
+      JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      SPRING_PROFILES_ACTIVE: dev
+      JPA_DDL_AUTO: update
+      FLYWAY_ENABLED: "true"
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-shikharyadav595@gmail.com}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-wwuizilhsrxzkves}
+      SECONDARY_MAIL_USERNAME: ${SECONDARY_MAIL_USERNAME:-gishan750@gmail.com}
+      SECONDARY_MAIL_PASSWORD: ${SECONDARY_MAIL_PASSWORD:-mubowekuaiwvcvjf}
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount source so devtools can detect class changes
+      - ./backend/src:/app/src
+      # Persist .m2 so any runtime dep downloads survive container restarts
+      - maven_cache:/root/.m2
+    networks:
+      - pp360_net
+
+  # ── Next.js Frontend ──────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev               # uses the `dev` stage (next dev)
+    container_name: pp360_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # Points rewrites() to the Docker backend service, not localhost
+      NEXT_PUBLIC_API_HOST: http://backend:8080
+      # Required on Windows Docker Desktop — inotify doesn't work on NTFS bind mounts
+      WATCHPACK_POLLING: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source dirs for hot reload — exclude node_modules (use image copy)
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/next.config.mjs:/app/next.config.mjs
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tailwind.config.ts:/app/tailwind.config.ts
+      - ./frontend/postcss.config.mjs:/app/postcss.config.mjs
+      # Persist Next.js build cache across restarts
+      - nextjs_cache:/app/.next
+    networks:
+      - pp360_net
+
+volumes:
+  postgres_data:    # Postgres data survives container restarts
+  redis_data:       # Redis in-memory persistence volume
+  maven_cache:      # Maven .m2 runtime cache
+  nextjs_cache:     # Next.js incremental build cache
+
+networks:
+  pp360_net:
+    driver: bridge

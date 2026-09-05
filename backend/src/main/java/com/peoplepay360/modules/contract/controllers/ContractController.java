@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,6 +43,7 @@ public class ContractController {
     private final WorkingScheduleRepository scheduleRepository;
 
     @GetMapping
+    @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_USER', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<ContractResponse>>> getAllContracts(
             @RequestParam(required = false) UUID employeeId
@@ -54,6 +56,7 @@ public class ContractController {
     }
 
     @GetMapping("/employee/{employeeId}")
+    @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_USER', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<ContractResponse>>> getContractsByEmployee(
             @PathVariable UUID employeeId
@@ -64,6 +67,7 @@ public class ContractController {
     }
 
     @GetMapping("/{id}")
+    @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_USER', 'ADMIN')")
     public ResponseEntity<ApiResponse<ContractResponse>> getContractById(@PathVariable UUID id) {
         Contract contract = contractService.getContractById(id);

@@ -22,6 +22,7 @@ public class AttendanceResponse {
 
     private UUID id;
     private UUID employeeId;
+    private String employeeCode;
     private String employeeName;
     private LocalDate date;
     private Instant checkIn;
@@ -37,6 +38,7 @@ public class AttendanceResponse {
         return AttendanceResponse.builder()
                 .id(record.getId())
                 .employeeId(record.getEmployee().getId())
+                .employeeCode(record.getEmployee().getEmployeeCode())
                 .employeeName(record.getEmployee().getFullName())
                 .date(record.getDate())
                 .checkIn(record.getCheckIn())

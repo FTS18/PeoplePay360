@@ -42,4 +42,14 @@ public interface PayrunRepository extends JpaRepository<Payrun, UUID> {
     );
 
     long countByStatus(PayrunStatus status);
+
+    @Query("SELECT COUNT(ps) > 0 FROM Payslip ps " +
+           "WHERE ps.employee.id = :employeeId " +
+           "AND ps.payrun.status = 'PAID' " +
+           "AND ps.periodStart <= :date " +
+           "AND ps.periodEnd >= :date")
+    boolean existsPaidPayrunForEmployeeOnDate(
+            @Param("employeeId") UUID employeeId,
+            @Param("date") LocalDate date
+    );
 }
