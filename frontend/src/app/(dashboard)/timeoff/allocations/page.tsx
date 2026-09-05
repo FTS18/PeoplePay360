@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Plus, RefreshCw, ShieldCheck, CheckCircle2, CalendarRange, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { apiClient } from "@/services/apiClient";
 import { timeoffService, CreateAllocationPayload } from "@/services/timeoffService";
 import { TimeOffAllocation, TimeOffType } from "@/types";
 
@@ -33,20 +34,21 @@ function CreateAllocationModal({ types, onClose, onSuccess }: CreateAllocationMo
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/v1/employees?page=0&size=100", {
-      headers: { Authorization: `Bearer ${localStorage.getItem("pp360_token")}` },
-    })
-      .then((r) => r.json())
-      .then((res) => {
-        const content = res?.data?.content ?? [];
+    async function loadEmployees() {
+      try {
+        const res = await apiClient.get<any>("/employees?size=100");
+        const content = Array.isArray(res) ? res : res?.content ?? [];
         setEmployees(
           content.map((e: any) => ({
             id: e.id,
             name: `${e.firstName} ${e.lastName} (${e.employeeCode})`,
           }))
         );
-      })
-      .catch(() => setEmployees([]));
+      } catch {
+        setEmployees([]);
+      }
+    }
+    loadEmployees();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
