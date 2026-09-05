@@ -41,7 +41,6 @@ class OfflineSyncService {
   }
 
   private async handleOnline() {
-    console.log("[OfflineSync] Network reconnected. Triggering background synchronization...");
     await this.syncPendingMutations();
   }
 

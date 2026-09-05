@@ -66,6 +66,8 @@ coverage/
 # Log files
 *.log
 logs/
+backend/backend.log
+backend/compile_out.txt
 
 # Environment files
 .env

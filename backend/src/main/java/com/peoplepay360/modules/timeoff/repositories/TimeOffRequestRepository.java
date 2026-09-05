@@ -54,6 +54,19 @@ public interface TimeOffRequestRepository extends JpaRepository<TimeOffRequest, 
             @Param("validTo") LocalDate validTo
     );
 
+    // Returns (typeId, sumTaken) pairs for all leave types for an employee in one GROUP BY query.
+    @Query("SELECT r.timeOffType.id, COALESCE(SUM(r.requestedUnits), 0) FROM TimeOffRequest r " +
+           "WHERE r.employee.id = :employeeId " +
+           "AND r.status = 'APPROVED' " +
+           "AND r.startDate >= :validFrom " +
+           "AND r.endDate <= :validTo " +
+           "GROUP BY r.timeOffType.id")
+    List<Object[]> sumApprovedTakenUnitsGroupedByType(
+            @Param("employeeId") UUID employeeId,
+            @Param("validFrom") LocalDate validFrom,
+            @Param("validTo") LocalDate validTo
+    );
+
     @Query("SELECT COUNT(r) > 0 FROM TimeOffRequest r " +
            "WHERE r.employee.id = :employeeId " +
            "AND r.status IN ('CONFIRM', 'APPROVED') " +
@@ -69,6 +82,10 @@ public interface TimeOffRequestRepository extends JpaRepository<TimeOffRequest, 
 
     long countByStatus(TimeOffStatus status);
 
+    // Returns (status, count) pairs in one GROUP BY query.
+    @Query("SELECT r.status, COUNT(r) FROM TimeOffRequest r GROUP BY r.status")
+    List<Object[]> countGroupedByStatus();
+
     @Query("SELECT COUNT(r) FROM TimeOffRequest r " +
            "WHERE r.employee.id = :employeeId " +
            "AND r.status = 'CONFIRM' " +
@@ -76,6 +93,19 @@ public interface TimeOffRequestRepository extends JpaRepository<TimeOffRequest, 
            "AND r.endDate >= :periodStart")
     long countPendingRequestsInWindow(
             @Param("employeeId") UUID employeeId,
+            @Param("periodStart") LocalDate periodStart,
+            @Param("periodEnd") LocalDate periodEnd
+    );
+
+    // Bulk variant: fetches all approved leaves for a set of employees in one query.
+    @Query("SELECT r FROM TimeOffRequest r " +
+           "JOIN FETCH r.timeOffType " +
+           "WHERE r.employee.id IN :employeeIds " +
+           "AND r.status = 'APPROVED' " +
+           "AND r.startDate <= :periodEnd " +
+           "AND r.endDate >= :periodStart")
+    List<TimeOffRequest> findApprovedLeavesInWindowBulk(
+            @Param("employeeIds") List<UUID> employeeIds,
             @Param("periodStart") LocalDate periodStart,
             @Param("periodEnd") LocalDate periodEnd
     );

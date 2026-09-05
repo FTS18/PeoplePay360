@@ -1,6 +1,7 @@
 package com.peoplepay360.modules.payroll.engine;
 
 import com.peoplepay360.exception.PayrollCalculationException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Slf4j
 @Component
 public class FormulaEvaluator {
 
@@ -42,8 +44,9 @@ public class FormulaEvaluator {
             } else if (result instanceof Number num) {
                 return BigDecimal.valueOf(num.doubleValue()).setScale(2, RoundingMode.HALF_UP);
             }
-        } catch (Exception ignored) {
-            // Fallback to token infix evaluator if formula uses custom simple syntax
+        } catch (Exception e) {
+            // SpEL cannot parse this formula syntax — fall back to the token infix evaluator.
+            log.warn("SpEL evaluation failed for formula '{}': {}. Falling back to infix evaluator.", formula, e.getMessage());
         }
 
         // 2. Token infix math evaluator fallback
@@ -104,7 +107,13 @@ public class FormulaEvaluator {
             case '+' -> a.add(b);
             case '-' -> a.subtract(b);
             case '*' -> a.multiply(b);
-            case '/' -> b.signum() == 0 ? BigDecimal.ZERO : a.divide(b, 4, RoundingMode.HALF_UP);
+            case '/' -> {
+                if (b.signum() == 0) {
+                    log.warn("Divide-by-zero in formula evaluation — returning 0. Check salary rule configuration.");
+                    yield BigDecimal.ZERO;
+                }
+                yield a.divide(b, 4, RoundingMode.HALF_UP);
+            }
             default -> BigDecimal.ZERO;
         };
     }

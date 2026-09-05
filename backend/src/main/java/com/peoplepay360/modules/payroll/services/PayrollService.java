@@ -7,6 +7,7 @@ import com.peoplepay360.exception.ResourceNotFoundException;
 import com.peoplepay360.modules.attendance.repositories.AttendanceRecordRepository;
 import com.peoplepay360.modules.contract.entities.Contract;
 import com.peoplepay360.modules.contract.repositories.ContractRepository;
+import com.peoplepay360.modules.dashboard.repositories.DashboardQueryRepository;
 import com.peoplepay360.modules.payroll.engine.PayrollValidationScanner;
 import com.peoplepay360.modules.payroll.engine.PayrollValidationScanner.PayrollWarning;
 import com.peoplepay360.modules.payroll.engine.SalaryCalculationEngine;
@@ -16,7 +17,8 @@ import com.peoplepay360.modules.payroll.entities.SalaryStructure;
 import com.peoplepay360.modules.payroll.repositories.PayrunRepository;
 import com.peoplepay360.modules.payroll.repositories.PayslipRepository;
 import com.peoplepay360.modules.payroll.repositories.SalaryStructureRepository;
-import com.peoplepay360.modules.timeoff.services.LeaveLedgerService;
+import com.peoplepay360.modules.timeoff.entities.TimeOffRequest;
+import com.peoplepay360.modules.timeoff.repositories.TimeOffRequestRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,9 +26,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,10 +47,10 @@ public class PayrollService {
     private final SalaryStructureRepository structureRepository;
     private final ContractRepository contractRepository;
     private final AttendanceRecordRepository attendanceRepository;
-    private final LeaveLedgerService leaveLedgerService;
+    private final TimeOffRequestRepository timeOffRequestRepository;
     private final SalaryCalculationEngine calculationEngine;
     private final PayrollValidationScanner validationScanner;
-    private final com.peoplepay360.modules.dashboard.repositories.DashboardQueryRepository dashboardQueryRepository;
+    private final DashboardQueryRepository dashboardQueryRepository;
 
     @Transactional
     public Payrun createPayrunDraft(String name, UUID structureId, LocalDate start, LocalDate end) {
@@ -93,37 +99,34 @@ public class PayrollService {
                 payrun.getPeriodEnd()
         );
 
+        // Filter down to the requested employee subset if supplied.
+        List<Contract> targetContracts = (employeeIds == null || employeeIds.isEmpty())
+                ? activeContracts
+                : activeContracts.stream()
+                        .filter(c -> employeeIds.contains(c.getEmployee().getId()))
+                        .toList();
+
+        List<UUID> targetEmployeeIds = targetContracts.stream()
+                .map(c -> c.getEmployee().getId())
+                .collect(Collectors.toList());
+
+        // Pre-fetch attendance counts and approved leaves in 2 bulk queries — eliminates the N+1.
+        Map<UUID, Integer> workedDaysMap = buildWorkedDaysMap(
+                targetEmployeeIds, payrun.getPeriodStart(), payrun.getPeriodEnd());
+
+        Map<UUID, LeaveCount> leaveCountMap = buildLeaveCountMap(
+                targetEmployeeIds, payrun.getPeriodStart(), payrun.getPeriodEnd());
+
         BigDecimal totalBasic = BigDecimal.ZERO;
         BigDecimal totalAllowances = BigDecimal.ZERO;
         BigDecimal totalDeductions = BigDecimal.ZERO;
         BigDecimal totalNet = BigDecimal.ZERO;
 
-        for (Contract contract : activeContracts) {
-            if (employeeIds != null && !employeeIds.isEmpty() && !employeeIds.contains(contract.getEmployee().getId())) {
-                continue;
-            }
-
-            int rawWorkedDays = attendanceRepository.countWorkedDaysInPeriod(
-                    contract.getEmployee().getId(),
-                    payrun.getPeriodStart(),
-                    payrun.getPeriodEnd()
-            );
-
-            int unpaidLeaveDays = leaveLedgerService.calculateClippedLeaveDays(
-                    contract.getEmployee().getId(),
-                    payrun.getPeriodStart(),
-                    payrun.getPeriodEnd(),
-                    false
-            );
-
-            int paidLeaveDays = leaveLedgerService.calculateClippedLeaveDays(
-                    contract.getEmployee().getId(),
-                    payrun.getPeriodStart(),
-                    payrun.getPeriodEnd(),
-                    true
-            );
-
-            int effectiveWorkedDays = rawWorkedDays + paidLeaveDays;
+        for (Contract contract : targetContracts) {
+            UUID empId = contract.getEmployee().getId();
+            int rawWorkedDays = workedDaysMap.getOrDefault(empId, 0);
+            LeaveCount leaveCounts = leaveCountMap.getOrDefault(empId, LeaveCount.ZERO);
+            int effectiveWorkedDays = rawWorkedDays + leaveCounts.paid();
 
             Payslip payslip = calculationEngine.computePayslip(
                     payrun,
@@ -131,8 +134,8 @@ public class PayrollService {
                     contract,
                     structure,
                     effectiveWorkedDays,
-                    unpaidLeaveDays,
-                    paidLeaveDays
+                    leaveCounts.unpaid(),
+                    leaveCounts.paid()
             );
             payrun.addPayslip(payslip);
 
@@ -167,8 +170,8 @@ public class PayrollService {
 
         boolean hasCritical = warnings.stream().anyMatch(w -> CRITICAL_CODES.contains(w.warningCode()));
         if (!hasCritical) {
-            // Clean scan — advance to VALIDATED so markAsPaid knows the officer reviewed it.
             payrun.setStatus(PayrunStatus.VALIDATED);
+            payrun.setValidatedAt(Instant.now());
             payrunRepository.save(payrun);
         }
 
@@ -184,7 +187,6 @@ public class PayrollService {
             throw new BusinessRuleViolationException("Only computed or validated payruns can be marked as paid");
         }
 
-        // Re-run the scanner every time to catch data that changed after compute.
         List<PayrollWarning> warnings = validationScanner.scan(payrun.getPayslips());
         List<String> blockers = warnings.stream()
                 .filter(w -> CRITICAL_CODES.contains(w.warningCode()))
@@ -206,14 +208,53 @@ public class PayrollService {
 
         Payrun saved = payrunRepository.save(payrun);
 
-        // Concurrently refresh Enterprise PostgreSQL Materialized Views for sub-10ms dashboard scaling
         try {
             dashboardQueryRepository.refreshDepartmentCostView();
             dashboardQueryRepository.refreshMonthlySummaryView();
         } catch (Exception e) {
-            // Materialized views will catch up on next refresh if concurrent lock or migration in flight
+            // Materialized view refresh is best-effort; dashboard will catch up on next scheduled refresh.
         }
 
         return saved;
+    }
+
+    // ── Private helpers ──────────────────────────────────────────────────────
+
+    private Map<UUID, Integer> buildWorkedDaysMap(List<UUID> employeeIds, LocalDate start, LocalDate end) {
+        Map<UUID, Integer> result = new HashMap<>();
+        if (employeeIds.isEmpty()) return result;
+        List<Object[]> rows = attendanceRepository.countWorkedDaysBulk(employeeIds, start, end);
+        for (Object[] row : rows) {
+            result.put((UUID) row[0], ((Number) row[1]).intValue());
+        }
+        return result;
+    }
+
+    private Map<UUID, LeaveCount> buildLeaveCountMap(List<UUID> employeeIds, LocalDate periodStart, LocalDate periodEnd) {
+        Map<UUID, LeaveCount> result = new HashMap<>();
+        if (employeeIds.isEmpty()) return result;
+
+        List<TimeOffRequest> leaves = timeOffRequestRepository
+                .findApprovedLeavesInWindowBulk(employeeIds, periodStart, periodEnd);
+
+        for (TimeOffRequest req : leaves) {
+            UUID empId = req.getEmployee().getId();
+            boolean isPaid = req.getTimeOffType().isPaid();
+
+            // Clip the leave window to the payrun period boundary.
+            LocalDate clipStart = req.getStartDate().isAfter(periodStart) ? req.getStartDate() : periodStart;
+            LocalDate clipEnd = req.getEndDate().isBefore(periodEnd) ? req.getEndDate() : periodEnd;
+            int days = (int) Math.max(0, ChronoUnit.DAYS.between(clipStart, clipEnd) + 1);
+
+            LeaveCount existing = result.getOrDefault(empId, LeaveCount.ZERO);
+            result.put(empId, isPaid
+                    ? new LeaveCount(existing.paid() + days, existing.unpaid())
+                    : new LeaveCount(existing.paid(), existing.unpaid() + days));
+        }
+        return result;
+    }
+
+    private record LeaveCount(int paid, int unpaid) {
+        static final LeaveCount ZERO = new LeaveCount(0, 0);
     }
 }

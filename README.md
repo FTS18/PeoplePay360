@@ -201,3 +201,212 @@ The platform enforces a 5-tier access control structure ensuring strict separati
     *   [03. Sequential Rule Evaluation Pipeline](docs/database/03_sequential_rule_evaluation_pipeline.md)
     *   [04. Concurrency Worker Queue & Immutability Guard](docs/database/04_concurrency_worker_queue_immutability_guard.md)
     *   [05. Interactive Proration & Pipeline Simulator](docs/database/05_proration_pipeline_simulator.md)
+
+---
+
+## 8. Installation & Setup Guide
+
+PeoplePay360 can be run via **Docker Compose** (recommended for cross-platform reproducibility) or executed **bare-metal** on macOS and Windows workstations.
+
+### 8.1 Prerequisites
+
+| Component | Minimum Version | Verification Command |
+|---|---|---|
+| Docker & Docker Compose | 24.0+ / Compose v2.20+ | `docker --version && docker compose version` |
+| Java Development Kit (JDK) | OpenJDK 21 LTS | `java -version` |
+| Node.js & npm | Node.js 20.x LTS / npm 10.x | `node -v && npm -v` |
+| PostgreSQL *(Local only)* | PostgreSQL 17.x | `psql --version` |
+| Redis *(Local only)* | Redis 7.x | `redis-cli --version` |
+
+---
+
+### 8.2 Method 1: Docker Compose Setup (macOS & Windows)
+
+This is the fastest method to provision the complete application stack (PostgreSQL, Redis, Spring Boot Backend, Next.js Frontend) with active volume persistence, health checks, and hot reload.
+
+#### Step 1: Clone Repository & Configure Environment
+```bash
+git clone https://github.com/your-org/PeoplePay360.git
+cd PeoplePay360
+
+# Copy the example environment file
+cp .env.example .env
+```
+
+> **Configuration Note:** For local development, `.env.example` contains working default secrets and database configurations. Update `JWT_SECRET` and SMTP credentials (`MAIL_USERNAME`, `MAIL_PASSWORD`) if email delivery or custom security parameters are required.
+
+#### Step 2: Build & Start All Services
+```bash
+# Build images and start all 4 services in the foreground
+docker compose up --build
+
+# Or start in detached mode
+docker compose up --build -d
+```
+
+#### Step 3: Verify Running Services
+```bash
+docker compose ps
+```
+All containers should report `healthy` or `running`:
+*   `pp360_postgres` — Port `5432`
+*   `pp360_redis` — Port `6379`
+*   `pp360_backend` — Port `8080`
+*   `pp360_frontend` — Port `3000`
+
+#### Step 4: Access Application Endpoints
+*   **Web Application:** `http://localhost:3000`
+*   **Backend REST API:** `http://localhost:8080/api/v1`
+*   **Swagger / OpenAPI UI:** `http://localhost:8080/api/v1/swagger-ui.html`
+*   **PostgreSQL Direct:** `localhost:5432` (DB: `peoplepay360`, User: `pp360user`, Password: `pp360pass`)
+*   **Redis Direct:** `localhost:6379`
+
+#### Step 5: Stop or Reset Containers
+```bash
+# Stop containers while preserving database and build volumes
+docker compose down
+
+# Stop containers and wipe all persistent database and cache volumes
+docker compose down -v
+```
+
+---
+
+### 8.3 Method 2: Bare-Metal Setup (macOS)
+
+#### Step 1: Install System Dependencies via Homebrew
+```bash
+# Install Homebrew if not present
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install runtime dependencies
+brew install openjdk@21 node@20 postgresql@17 redis
+```
+
+#### Step 2: Configure PostgreSQL & Redis
+```bash
+# Start background services
+brew services start postgresql@17
+brew services start redis
+
+# Create database and application user
+psql postgres -c "CREATE USER pp360user WITH PASSWORD 'pp360pass' SUPERUSER;"
+psql postgres -c "CREATE DATABASE peoplepay360 OWNER pp360user;"
+```
+
+#### Step 3: Run Spring Boot Backend
+```bash
+cd backend
+
+# Configure environment variables
+export SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/peoplepay360"
+export DB_USER="pp360user"
+export DB_PASSWORD="pp360pass"
+export REDIS_HOST="localhost"
+export REDIS_PORT="6379"
+export JWT_SECRET="404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
+export CORS_ALLOWED_ORIGINS="http://localhost:3000"
+
+# Compile and start backend server
+./mvnw spring-boot:run
+```
+
+#### Step 4: Run Next.js Frontend
+In a new terminal tab:
+```bash
+cd frontend
+
+# Install Node dependencies
+npm install
+
+# Launch development server
+npm run dev
+```
+Open `http://localhost:3000` in your browser.
+
+---
+
+### 8.4 Method 3: Bare-Metal Setup (Windows)
+
+#### Step 1: Hybrid Infrastructure via Docker (Recommended for Windows)
+Running PostgreSQL and Redis natively on Windows requires manual service configuration. The recommended approach is to run storage services in Docker while running backend and frontend code directly in PowerShell/CMD:
+```powershell
+# Start only database and cache containers
+docker compose up postgres redis -d
+```
+
+*Alternatively, if running standalone Windows installers for PostgreSQL 17 and Redis, ensure PostgreSQL is running on port `5432` with a database named `peoplepay360` and credentials `pp360user` / `pp360pass`.*
+
+#### Step 2: Run Spring Boot Backend (PowerShell)
+```powershell
+cd backend
+
+# Set environment variables for current PowerShell session
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/peoplepay360"
+$env:DB_USER="pp360user"
+$env:DB_PASSWORD="pp360pass"
+$env:REDIS_HOST="localhost"
+$env:REDIS_PORT="6379"
+$env:JWT_SECRET="404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
+$env:CORS_ALLOWED_ORIGINS="http://localhost:3000"
+
+# Compile and run backend using Maven wrapper
+.\mvnw.cmd spring-boot:run
+```
+
+#### Step 3: Run Next.js Frontend (PowerShell)
+In a separate PowerShell window:
+```powershell
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start Next.js development server
+npm run dev
+```
+Open `http://localhost:3000` in your browser.
+
+---
+
+## 9. Production Docker Deployment
+
+To deploy optimized, multi-stage production images with stripped debug layers, standalone Next.js output, resource constraints, and production security settings:
+
+```bash
+# Start production stack in background
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+
+# View production status
+docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+```
+
+---
+
+## 10. Operational Docker CLI Commands
+
+| Operation | Command |
+|---|---|
+| Stream all container logs | `docker compose logs -f` |
+| Stream backend logs only | `docker compose logs -f backend` |
+| Stream frontend logs only | `docker compose logs -f frontend` |
+| Interactive shell in backend container | `docker compose exec backend sh` |
+| Interactive PostgreSQL shell (psql) | `docker compose exec postgres psql -U pp360user -d peoplepay360` |
+| Clean rebuild without cache | `docker compose build --no-cache` |
+| Restart specific service | `docker compose restart backend` |
+| Inspect container resource usage | `docker stats` |
+
+---
+
+## 11. Troubleshooting & Platform Notes
+
+### Port Conflicts
+*   **Port 5432 (PostgreSQL):** If a local PostgreSQL instance is already running on the host machine, stop it (`brew services stop postgresql@17` on macOS or `Stop-Service postgresql*` in Windows PowerShell), or change the host port mapping in `docker-compose.yml` (e.g., `"5433:5432"`).
+*   **Port 8080 / 3000:** Ensure no other web servers or development processes occupy these ports before running `docker compose up`.
+
+### Windows Docker Desktop File Watcher
+*   On Windows host filesystems (NTFS), Linux inotify events inside Docker containers do not reliably fire across bind mounts. The development setup includes `WATCHPACK_POLLING=true` in `docker-compose.yml` to ensure Next.js hot-reloading works seamlessly on Windows.
+
+### Apple Silicon (macOS M1/M2/M3/M4) Architecture
+*   All images (`postgres:17-alpine`, `redis:7-alpine`, `eclipse-temurin:21-jdk`, `node:20-alpine`) provide native `linux/arm64` binaries, requiring zero Rosetta emulation.
+

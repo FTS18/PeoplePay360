@@ -15,7 +15,6 @@ export class ApiError extends Error {
   }
 }
 
-let loginInFlight: Promise<string | null> | null = null;
 let refreshInFlight: Promise<string | null> | null = null;
 
 async function refreshAccessToken(refreshToken: string): Promise<string | null> {
@@ -59,33 +58,7 @@ async function refreshAccessToken(refreshToken: string): Promise<string | null> 
 
 async function getAuthToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
-  const token = localStorage.getItem("peoplepay_token");
-  if (token) return token;
-
-  if (!loginInFlight) {
-    loginInFlight = (async () => {
-      try {
-        const res = await fetch(`${BASE_URL}/auth/demo-login?role=ADMIN`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const fetchedToken = json?.data?.accessToken;
-          if (fetchedToken) {
-            localStorage.setItem("peoplepay_token", fetchedToken);
-            return fetchedToken;
-          }
-        }
-      } catch {
-        // Fallback to null
-      } finally {
-        loginInFlight = null;
-      }
-      return null;
-    })();
-  }
-  return loginInFlight;
+  return localStorage.getItem("peoplepay_token");
 }
 
 interface CacheEntry<T> {

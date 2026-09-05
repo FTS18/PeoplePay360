@@ -32,6 +32,17 @@ services:
     networks:
       - pp360_net
 
+  # ── Adminer Web Database Client ─────────────────────────────────────────
+  adminer:
+    image: adminer:latest
+    container_name: pp360_adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    networks:
+      - pp360_net
+
+
   # ── Redis In-Memory Cache ──────────────────────────────────────────────────
   redis:
     image: redis:7-alpine

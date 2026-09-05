@@ -28,6 +28,12 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
         BigDecimal getTotalNet();
     }
 
+    // Combines SUM + AVG in one query, eliminating the zero-check retry pattern.
+    interface PayrollAggregateProjection {
+        BigDecimal getTotalNet();
+        BigDecimal getAvgNet();
+    }
+
     @Query("SELECT " +
            "c.department AS department, " +
            "COUNT(DISTINCT p.employee.id) AS headcount, " +
@@ -61,6 +67,31 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
            "GROUP BY p.periodStart " +
            "ORDER BY p.periodStart ASC")
     List<MonthlyPayrollTrendProjection> findMonthlyPayrollTrends(
+            @Param("sinceDate") LocalDate sinceDate,
+            @Param("department") String department,
+            @Param("role") com.peoplepay360.common.enums.Role role
+    );
+
+    @Query("SELECT COALESCE(SUM(p.netSalary), 0) AS totalNet, COALESCE(AVG(p.netSalary), 0) AS avgNet " +
+           "FROM Payslip p " +
+           "JOIN p.contract c " +
+           "WHERE p.status IN ('DRAFT', 'COMPUTED', 'VALIDATED', 'PAID') " +
+           "AND p.periodStart >= :sinceDate " +
+           "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
+           "AND (:role IS NULL OR p.employee.role = :role)")
+    PayrollAggregateProjection getPayrollAggregates(
+            @Param("sinceDate") LocalDate sinceDate,
+            @Param("department") String department,
+            @Param("role") com.peoplepay360.common.enums.Role role
+    );
+
+    @Query("SELECT COUNT(p) FROM Payslip p " +
+           "JOIN p.contract c " +
+           "WHERE p.manualOverride = true " +
+           "AND p.periodStart >= :sinceDate " +
+           "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
+           "AND (:role IS NULL OR p.employee.role = :role)")
+    Long countManualOverrides(
             @Param("sinceDate") LocalDate sinceDate,
             @Param("department") String department,
             @Param("role") com.peoplepay360.common.enums.Role role

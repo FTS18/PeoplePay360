@@ -42,4 +42,16 @@ public interface TimeOffAllocationRepository extends JpaRepository<TimeOffAlloca
             @Param("typeId") UUID typeId,
             @Param("date") LocalDate date
     );
+
+    // Returns (typeId, sumAllocated) pairs for all leave types for an employee in one GROUP BY query.
+    @Query("SELECT a.timeOffType.id, COALESCE(SUM(a.allocatedUnits), 0) FROM TimeOffAllocation a " +
+           "WHERE a.employee.id = :employeeId " +
+           "AND a.status = 'APPROVED' " +
+           "AND a.validFrom <= :date " +
+           "AND a.validTo >= :date " +
+           "GROUP BY a.timeOffType.id")
+    List<Object[]> sumApprovedAllocationsGroupedByType(
+            @Param("employeeId") UUID employeeId,
+            @Param("date") LocalDate date
+    );
 }

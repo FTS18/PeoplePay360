@@ -105,11 +105,12 @@ public class TimeOffController {
         UUID resolvedId = isEmployee ? currentUser.getId() : (employeeId != null ? employeeId : currentUser.getId());
         LocalDate queryDate = asOfDate != null ? asOfDate : LocalDate.now();
         List<TimeOffType> types = typeRepository.findByActiveTrue();
+        java.util.Map<UUID, BigDecimal> precomputedBalances = leaveLedgerService.getAllAvailableBalances(resolvedId, queryDate);
 
         List<TimeOffBalanceResponse> balances = types.stream().map(type -> {
             BigDecimal bal;
             if (type.isRequiresAllocation()) {
-                BigDecimal actualBal = leaveLedgerService.getAvailableBalance(resolvedId, type.getId(), queryDate);
+                BigDecimal actualBal = precomputedBalances.getOrDefault(type.getId(), BigDecimal.ZERO);
                 if (actualBal.compareTo(BigDecimal.ZERO) == 0) {
                     // Default baseline entitlement fallback for paid leave types
                     bal = "PTO".equals(type.getCode()) ? BigDecimal.valueOf(24) :

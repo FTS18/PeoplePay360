@@ -34,6 +34,10 @@ public interface PayslipRepository extends JpaRepository<Payslip, UUID> {
 
     long countByStatus(PayslipStatus status);
 
+    // Returns (status, count) pairs in one GROUP BY query.
+    @Query("SELECT p.status, COUNT(p) FROM Payslip p GROUP BY p.status")
+    List<Object[]> countGroupedByStatus();
+
     @Override
     @EntityGraph(attributePaths = {"employee", "payrun"})
     Page<Payslip> findAll(Pageable pageable);

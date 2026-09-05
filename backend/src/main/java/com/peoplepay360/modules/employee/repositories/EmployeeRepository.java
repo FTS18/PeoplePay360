@@ -56,4 +56,14 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
         @Param("query") String query,
         Pageable pageable
     );
+
+    // Replaces a full findAll() scan in DashboardController.
+    @Query("SELECT COUNT(e) FROM Employee e WHERE e.status = 'ACTIVE' " +
+           "AND (e.bankAccountNumber IS NULL OR TRIM(e.bankAccountNumber) = '')")
+    long countActiveWithMissingBank();
+
+    // Single query replacing two separate existsByEmail / existsByCode calls at create time.
+    @Query("SELECT e.email, e.employeeCode FROM Employee e " +
+           "WHERE e.email = :email OR e.employeeCode = :code")
+    List<Object[]> findConflictingUniqueFields(@Param("email") String email, @Param("code") String code);
 }

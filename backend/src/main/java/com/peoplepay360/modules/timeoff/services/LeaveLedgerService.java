@@ -40,6 +40,34 @@ public class LeaveLedgerService {
         return totalAllocated.subtract(totalTaken).max(BigDecimal.ZERO);
     }
 
+    // Bulk variant: fetches all allocations and taken units for all types in 2 queries total.
+    public java.util.Map<UUID, BigDecimal> getAllAvailableBalances(UUID employeeId, LocalDate asOfDate) {
+        LocalDate validFrom = LocalDate.of(asOfDate.getYear(), 1, 1);
+        LocalDate validTo = LocalDate.of(asOfDate.getYear(), 12, 31);
+
+        java.util.Map<UUID, BigDecimal> allocatedMap = new java.util.HashMap<>();
+        for (Object[] row : allocationRepository.sumApprovedAllocationsGroupedByType(employeeId, asOfDate)) {
+            allocatedMap.put((UUID) row[0], (BigDecimal) row[1]);
+        }
+
+        java.util.Map<UUID, BigDecimal> takenMap = new java.util.HashMap<>();
+        for (Object[] row : requestRepository.sumApprovedTakenUnitsGroupedByType(employeeId, validFrom, validTo)) {
+            takenMap.put((UUID) row[0], (BigDecimal) row[1]);
+        }
+
+        java.util.Map<UUID, BigDecimal> balances = new java.util.HashMap<>();
+        java.util.Set<UUID> allTypeIds = new java.util.HashSet<>(allocatedMap.keySet());
+        allTypeIds.addAll(takenMap.keySet());
+
+        for (UUID typeId : allTypeIds) {
+            BigDecimal allocated = allocatedMap.getOrDefault(typeId, BigDecimal.ZERO);
+            BigDecimal taken = takenMap.getOrDefault(typeId, BigDecimal.ZERO);
+            balances.put(typeId, allocated.subtract(taken).max(BigDecimal.ZERO));
+        }
+
+        return balances;
+    }
+
     @Transactional
     public TimeOffRequest applyLeave(TimeOffRequest request) {
         if (request.getEndDate().isBefore(request.getStartDate())) {
@@ -94,20 +122,31 @@ public class LeaveLedgerService {
                 ? request.getEmployee().getWorkingSchedule().getAverageHoursPerDay()
                 : BigDecimal.valueOf(8);
 
+        java.util.List<AttendanceRecord> existingRecords = attendanceRepository.findByEmployeeIdAndDateBetween(
+                request.getEmployee().getId(), request.getStartDate(), request.getEndDate());
+        java.util.Set<LocalDate> existingDates = existingRecords.stream()
+                .map(AttendanceRecord::getDate)
+                .collect(java.util.stream.Collectors.toSet());
+
+        java.util.List<AttendanceRecord> toInsert = new java.util.ArrayList<>();
         while (!curr.isAfter(request.getEndDate())) {
-            LocalDate d = curr;
-            attendanceRepository.findByEmployeeIdAndDate(request.getEmployee().getId(), d)
-                    .orElseGet(() -> attendanceRepository.save(AttendanceRecord.builder()
-                            .employee(request.getEmployee())
-                            .date(d)
-                            .expectedHours(expectedHours)
-                            .workedHours(request.getTimeOffType().isPaid() ? expectedHours : BigDecimal.ZERO)
-                            .status(request.getTimeOffType().isPaid() ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT)
-                            .manualOverride(true)
-                            .overrideReason("Approved Time Off: " + request.getTimeOffType().getName())
-                            .reviewedBy(approver)
-                            .build()));
+            if (!existingDates.contains(curr)) {
+                toInsert.add(AttendanceRecord.builder()
+                        .employee(request.getEmployee())
+                        .date(curr)
+                        .expectedHours(expectedHours)
+                        .workedHours(request.getTimeOffType().isPaid() ? expectedHours : BigDecimal.ZERO)
+                        .status(request.getTimeOffType().isPaid() ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT)
+                        .manualOverride(true)
+                        .overrideReason("Approved Time Off: " + request.getTimeOffType().getName())
+                        .reviewedBy(approver)
+                        .build());
+            }
             curr = curr.plusDays(1);
+        }
+
+        if (!toInsert.isEmpty()) {
+            attendanceRepository.saveAll(toInsert);
         }
 
         return requestRepository.save(request);
