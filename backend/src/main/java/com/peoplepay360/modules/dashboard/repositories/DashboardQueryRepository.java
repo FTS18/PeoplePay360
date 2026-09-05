@@ -54,7 +54,7 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
     List<MonthlyPayrollTrendProjection> findMonthlyPayrollTrends(@Param("sinceDate") LocalDate sinceDate);
 
     @Query("SELECT COALESCE(SUM(p.netSalary), 0) FROM Payslip p " +
-           "WHERE p.status = 'PAID' AND p.periodStart >= :sinceDate")
+           "WHERE p.status IN ('VALIDATED', 'PAID') AND p.periodStart >= :sinceDate")
     BigDecimal sumTotalNetSalaryPaid(@Param("sinceDate") LocalDate sinceDate);
 
     @Query("SELECT COALESCE(AVG(p.netSalary), 0) FROM Payslip p " +

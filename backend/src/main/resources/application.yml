@@ -8,15 +8,25 @@ spring:
     name: peoplepay360
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  devtools:
+    restart:
+      enabled: false
   threads:
     virtual:
       enabled: true
+
+logging:
+  file:
+    name: backend.log
+  level:
+    root: INFO
+    com.peoplepay360: DEBUG
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
     baseline-on-migrate: true
     locations: classpath:db/migration
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:peoplepay360}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:peoplepay360}}
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -28,10 +38,12 @@ spring:
       max-lifetime: 1200000
   jpa:
     open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
         jdbc:
           batch_size: 50

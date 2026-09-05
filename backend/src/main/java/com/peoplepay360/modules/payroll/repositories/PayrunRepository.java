@@ -18,7 +18,12 @@ public interface PayrunRepository extends JpaRepository<Payrun, UUID> {
 
     Page<Payrun> findByStatus(PayrunStatus status, Pageable pageable);
 
-    @Query("SELECT p FROM Payrun p " +
+    @Query(value = "SELECT p FROM Payrun p LEFT JOIN FETCH p.salaryStructure",
+           countQuery = "SELECT COUNT(p) FROM Payrun p")
+    Page<Payrun> findAllWithStructure(Pageable pageable);
+
+    @Query("SELECT DISTINCT p FROM Payrun p " +
+           "LEFT JOIN FETCH p.salaryStructure " +
            "LEFT JOIN FETCH p.payslips " +
            "WHERE p.id = :id")
     Optional<Payrun> findWithPayslipsById(@Param("id") UUID id);

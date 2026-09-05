@@ -13,6 +13,7 @@ interface MetricCardProps {
     positive?: boolean;
   };
   className?: string;
+  loading?: boolean;
 }
 
 export function MetricCard({
@@ -23,6 +24,7 @@ export function MetricCard({
   accent = "teal",
   trend,
   className,
+  loading = false,
 }: MetricCardProps) {
   const getIconStyles = () => {
     switch (accent) {
@@ -55,9 +57,13 @@ export function MetricCard({
       </div>
 
       <div className="mt-4 flex items-baseline justify-between">
-        <div className="text-2xl font-bold tracking-tight text-[oklch(20%_0.02_240)] tabular-nums">
-          {value}
-        </div>
+        {loading ? (
+          <div className="h-7 w-24 bg-stone-100 rounded-lg animate-pulse" />
+        ) : (
+          <div className="text-2xl font-bold tracking-tight text-[oklch(20%_0.02_240)] tabular-nums">
+            {value}
+          </div>
+        )}
         {trend && (
           <span
             className={cn(

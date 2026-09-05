@@ -66,3 +66,18 @@ coverage/
 # Log files
 *.log
 logs/
+
+# Environment files
+.env
+*.env
+.env.local
+
+# Agent & Local IDE tooling
+.agents/
+.neon
+neon.ts
+skills-lock.json
+backend/.mvn/apache-maven-*
+backend/run_backend.ps1
+
+

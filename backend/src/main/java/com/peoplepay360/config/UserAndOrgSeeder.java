@@ -65,6 +65,8 @@ public class UserAndOrgSeeder {
                 .unit(TimeOffUnit.DAYS)
                 .requiresAllocation(true)
                 .colorCode("#0284C7")
+                .isPaid(true)
+                .payrollAffecting(false)
                 .build());
 
         timeOffTypeRepository.save(TimeOffType.builder()
@@ -73,6 +75,8 @@ public class UserAndOrgSeeder {
                 .unit(TimeOffUnit.DAYS)
                 .requiresAllocation(true)
                 .colorCode("#DC2626")
+                .isPaid(true)
+                .payrollAffecting(false)
                 .build());
 
         timeOffTypeRepository.save(TimeOffType.builder()
@@ -81,6 +85,8 @@ public class UserAndOrgSeeder {
                 .unit(TimeOffUnit.DAYS)
                 .requiresAllocation(false)
                 .colorCode("#64748B")
+                .isPaid(false)
+                .payrollAffecting(true)
                 .build());
     }
 

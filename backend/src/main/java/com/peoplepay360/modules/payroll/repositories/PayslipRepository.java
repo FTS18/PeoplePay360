@@ -21,7 +21,9 @@ public interface PayslipRepository extends JpaRepository<Payslip, UUID> {
 
     Page<Payslip> findByPayrunId(UUID payrunId, Pageable pageable);
 
-    Page<Payslip> findByEmployeeIdOrderByPeriodStartDesc(UUID employeeId, Pageable pageable);
+    Page<Payslip> findByEmployeeId(UUID employeeId, Pageable pageable);
+
+    Page<Payslip> findByPayrunIdAndEmployeeId(UUID payrunId, UUID employeeId, Pageable pageable);
 
     Page<Payslip> findByStatus(PayslipStatus status, Pageable pageable);
 

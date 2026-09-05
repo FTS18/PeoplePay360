@@ -36,11 +36,25 @@ import java.util.UUID;
 public class ContractController {
 
     private final ContractService contractService;
+    private final com.peoplepay360.modules.contract.repositories.ContractRepository contractRepository;
     private final EmployeeRepository employeeRepository;
     private final SalaryStructureRepository structureRepository;
     private final WorkingScheduleRepository scheduleRepository;
 
+    @GetMapping
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_USER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<List<ContractResponse>>> getAllContracts(
+            @RequestParam(required = false) UUID employeeId
+    ) {
+        List<Contract> contracts = employeeId != null
+                ? contractService.getContractsByEmployee(employeeId)
+                : contractRepository.findAll();
+        List<ContractResponse> responses = contracts.stream().map(ContractResponse::from).toList();
+        return ResponseEntity.ok(ApiResponse.ok(responses));
+    }
+
     @GetMapping("/employee/{employeeId}")
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_USER', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<ContractResponse>>> getContractsByEmployee(
             @PathVariable UUID employeeId
     ) {
@@ -50,6 +64,7 @@ public class ContractController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_USER', 'ADMIN')")
     public ResponseEntity<ApiResponse<ContractResponse>> getContractById(@PathVariable UUID id) {
         Contract contract = contractService.getContractById(id);
         return ResponseEntity.ok(ApiResponse.ok(ContractResponse.from(contract)));
@@ -66,20 +81,33 @@ public class ContractController {
         SalaryStructure structure = structureRepository.findById(request.getSalaryStructureId())
                 .orElseThrow(() -> new ResourceNotFoundException("SalaryStructure", "id", request.getSalaryStructureId()));
 
-        WorkingSchedule schedule = scheduleRepository.findById(request.getWorkingScheduleId())
-                .orElseThrow(() -> new ResourceNotFoundException("WorkingSchedule", "id", request.getWorkingScheduleId()));
+        UUID scheduleId = request.getWorkingScheduleId() != null
+                ? request.getWorkingScheduleId()
+                : (employee.getWorkingSchedule() != null ? employee.getWorkingSchedule().getId() : null);
+
+        WorkingSchedule schedule = scheduleId != null
+                ? scheduleRepository.findById(scheduleId).orElse(null)
+                : scheduleRepository.findAll().stream().findFirst().orElse(null);
+
+        String dept = request.getDepartment() != null && !request.getDepartment().isBlank()
+                ? request.getDepartment()
+                : employee.getDepartment();
+
+        String position = request.getJobPosition() != null && !request.getJobPosition().isBlank()
+                ? request.getJobPosition()
+                : employee.getJobPosition();
 
         Contract contract = Contract.builder()
                 .reference(request.getReference())
                 .employee(employee)
-                .department(request.getDepartment())
-                .jobPosition(request.getJobPosition())
+                .department(dept)
+                .jobPosition(position)
                 .salaryStructure(structure)
                 .workingSchedule(schedule)
                 .wage(request.getWage())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
-                .status(request.getStatus())
+                .status(request.getStatus() != null ? request.getStatus() : com.peoplepay360.common.enums.ContractStatus.RUNNING)
                 .build();
 
         Contract saved = contractService.saveContract(contract);

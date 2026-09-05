@@ -32,6 +32,7 @@ export default function DashboardPage() {
     monthlyPayrollDisbursed: "$54,200.00",
   });
 
+  const [loadingMetrics, setLoadingMetrics] = useState<boolean>(true);
   const [recentPayruns, setRecentPayruns] = useState<any[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<any[]>([]);
 
@@ -54,6 +55,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadDashboard() {
+      setLoadingMetrics(true);
       try {
         const [summaryRes, payrunsRes, attendanceRes] = await Promise.all([
           apiClient.get<any>(`/dashboard/summary?sinceDate=${sinceDate}`).catch(() => null),
@@ -64,13 +66,13 @@ export default function DashboardPage() {
         if (summaryRes) {
           const totalPaidNum = summaryRes.totalNetSalaryPaid ?? summaryRes.totalPaid;
           const formattedTotal = totalPaidNum != null
-            ? `$${Number(totalPaidNum).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-            : "$54,200.00";
+            ? `$${Number(totalPaidNum).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            : "$0.00";
 
           setMetrics({
-            activeEmployees: summaryRes.activeEmployeesCount ?? summaryRes.activeEmployees ?? 8,
-            runningContracts: summaryRes.runningContractsCount ?? summaryRes.runningContracts ?? 8,
-            pendingLeaves: summaryRes.pendingLeaveRequestsCount ?? summaryRes.pendingLeaves ?? 2,
+            activeEmployees: summaryRes.activeEmployeesCount ?? summaryRes.activeEmployees ?? 0,
+            runningContracts: summaryRes.runningContractsCount ?? summaryRes.runningContracts ?? 0,
+            pendingLeaves: summaryRes.pendingLeaveRequestsCount ?? summaryRes.pendingLeaves ?? 0,
             monthlyPayrollDisbursed: formattedTotal,
           });
         }
@@ -100,7 +102,9 @@ export default function DashboardPage() {
           );
         }
       } catch {
-        // keep seeded defaults
+        // graceful degradation
+      } finally {
+        setLoadingMetrics(false);
       }
     }
     loadDashboard();
@@ -159,6 +163,7 @@ export default function DashboardPage() {
           icon={Users}
           accent="teal"
           trend={{ value: "+1 this month", positive: true }}
+          loading={loadingMetrics}
         />
         <MetricCard
           title="Running Contracts"
@@ -166,6 +171,7 @@ export default function DashboardPage() {
           subtitle="Non-overlapping active terms"
           icon={FileText}
           accent="charcoal"
+          loading={loadingMetrics}
         />
         <MetricCard
           title="Pending Leaves"
@@ -174,6 +180,7 @@ export default function DashboardPage() {
           icon={CalendarDays}
           accent="gold"
           trend={{ value: "2 urgent", positive: false }}
+          loading={loadingMetrics}
         />
         <MetricCard
           title="Last Disbursed"
@@ -181,6 +188,7 @@ export default function DashboardPage() {
           subtitle="Validated & paid"
           icon={DollarSign}
           accent="green"
+          loading={loadingMetrics}
         />
       </div>
 

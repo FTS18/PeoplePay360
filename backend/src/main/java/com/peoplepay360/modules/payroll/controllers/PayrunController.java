@@ -13,6 +13,7 @@ import com.peoplepay360.modules.payroll.entities.Payslip;
 import com.peoplepay360.modules.payroll.repositories.PayrunRepository;
 import com.peoplepay360.modules.payroll.repositories.PayslipRepository;
 import com.peoplepay360.modules.payroll.services.PayrollService;
+import com.peoplepay360.security.SecurityUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,6 +22,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,6 +38,8 @@ import com.peoplepay360.modules.payroll.pdf.PdfGenerationService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @RestController
 @RequestMapping("/payroll")
 @RequiredArgsConstructor
@@ -48,14 +52,16 @@ public class PayrunController {
     private final EmailDispatchService emailDispatchService;
 
     @GetMapping("/payruns")
+    @PreAuthorize("hasAnyRole('HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<PageResponse<PayrunResponse>>> getPayruns(
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        Page<Payrun> page = payrunRepository.findAll(pageable);
+        Page<Payrun> page = payrunRepository.findAllWithStructure(pageable);
         return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(page.map(PayrunResponse::from))));
     }
 
     @GetMapping("/payruns/{id}")
+    @PreAuthorize("hasAnyRole('HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<PayrunResponse>> getPayrunById(@PathVariable UUID id) {
         Payrun payrun = payrunRepository.findWithPayslipsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payrun", "id", id));
@@ -102,28 +108,61 @@ public class PayrunController {
         return ResponseEntity.ok(ApiResponse.ok("Payrun marked as paid", PayrunResponse.from(paid)));
     }
 
+    // Employees see only their own payslips; HR roles see all (with optional employeeId filter).
     @GetMapping("/payslips")
     public ResponseEntity<ApiResponse<PageResponse<PayslipResponse>>> getPayslips(
             @org.springframework.web.bind.annotation.RequestParam(required = false) UUID payrunId,
-            @PageableDefault(size = 20) Pageable pageable
+            @org.springframework.web.bind.annotation.RequestParam(required = false) UUID employeeId,
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal SecurityUser currentUser
     ) {
-        Page<Payslip> page = payrunId != null
-                ? payslipRepository.findByPayrunId(payrunId, pageable)
-                : payslipRepository.findAll(pageable);
+        boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
+        Page<Payslip> page;
+        if (isEmployee) {
+            page = payrunId != null
+                    ? payslipRepository.findByPayrunIdAndEmployeeId(payrunId, currentUser.getId(), pageable)
+                    : payslipRepository.findByEmployeeId(currentUser.getId(), pageable);
+        } else {
+            if (payrunId != null && employeeId != null) {
+                page = payslipRepository.findByPayrunIdAndEmployeeId(payrunId, employeeId, pageable);
+            } else if (payrunId != null) {
+                page = payslipRepository.findByPayrunId(payrunId, pageable);
+            } else if (employeeId != null) {
+                page = payslipRepository.findByEmployeeId(employeeId, pageable);
+            } else {
+                page = payslipRepository.findAll(pageable);
+            }
+        }
         return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(page.map(PayslipResponse::from))));
     }
 
     @GetMapping("/payslips/{id}")
-    public ResponseEntity<ApiResponse<PayslipResponse>> getPayslipDetails(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<PayslipResponse>> getPayslipDetails(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal SecurityUser currentUser
+    ) {
         Payslip payslip = payslipRepository.findWithDetailsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payslip", "id", id));
+        // Employees may only read their own payslip
+        boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
+        if (isEmployee && !payslip.getEmployee().getId().equals(currentUser.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Access denied");
+        }
         return ResponseEntity.ok(ApiResponse.ok(PayslipResponse.from(payslip)));
     }
 
     @GetMapping("/payslips/{id}/pdf")
-    public ResponseEntity<byte[]> downloadPayslipPdf(@PathVariable UUID id) {
+    public ResponseEntity<byte[]> downloadPayslipPdf(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal SecurityUser currentUser
+    ) {
         Payslip payslip = payslipRepository.findWithDetailsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payslip", "id", id));
+
+        boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
+        if (isEmployee && !payslip.getEmployee().getId().equals(currentUser.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Access denied");
+        }
 
         byte[] pdfBytes = pdfGenerationService.generatePayslipPdf(payslip);
 

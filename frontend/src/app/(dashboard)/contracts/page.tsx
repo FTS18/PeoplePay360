@@ -99,7 +99,7 @@ export default function ContractsPage() {
       accessor: "wage",
       align: "right",
       render: (cnt) => (
-        <span className="font-mono text-xs font-semibold text-(--foreground)">
+        <span className="font-mono text-xs font-semibold text-(--foreground)" suppressHydrationWarning>
           ${Number(cnt.wage || cnt.monthlyWage || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
       ),

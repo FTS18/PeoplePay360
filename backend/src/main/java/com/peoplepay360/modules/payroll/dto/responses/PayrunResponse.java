@@ -36,11 +36,22 @@ public class PayrunResponse {
     private Instant paidAt;
 
     public static PayrunResponse from(Payrun payrun) {
+        UUID structureId = null;
+        String structureName = null;
+        try {
+            if (payrun.getSalaryStructure() != null) {
+                structureId = payrun.getSalaryStructure().getId();
+                structureName = payrun.getSalaryStructure().getName();
+            }
+        } catch (Exception ignored) {
+            // Lazy proxy fallback
+        }
+
         return PayrunResponse.builder()
                 .id(payrun.getId())
                 .name(payrun.getName())
-                .salaryStructureId(payrun.getSalaryStructure().getId())
-                .salaryStructureName(payrun.getSalaryStructure().getName())
+                .salaryStructureId(structureId)
+                .salaryStructureName(structureName)
                 .periodStart(payrun.getPeriodStart())
                 .periodEnd(payrun.getPeriodEnd())
                 .status(payrun.getStatus())

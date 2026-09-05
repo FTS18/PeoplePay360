@@ -14,6 +14,7 @@ import com.peoplepay360.modules.payroll.entities.Payrun;
 import com.peoplepay360.modules.payroll.entities.Payslip;
 import com.peoplepay360.modules.payroll.entities.SalaryStructure;
 import com.peoplepay360.modules.payroll.repositories.PayrunRepository;
+import com.peoplepay360.modules.payroll.repositories.PayslipRepository;
 import com.peoplepay360.modules.payroll.repositories.SalaryStructureRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,14 +24,21 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+
+
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PayrollService {
 
+    // These two codes block disbursement — data errors that produce wrong pay.
+    private static final Set<String> CRITICAL_CODES = Set.of("ZERO_OR_NEGATIVE_NET", "MISSING_BANK_ACCOUNT");
+
     private final PayrunRepository payrunRepository;
+    private final PayslipRepository payslipRepository;
     private final SalaryStructureRepository structureRepository;
     private final ContractRepository contractRepository;
     private final AttendanceRecordRepository attendanceRepository;
@@ -71,7 +79,10 @@ public class PayrollService {
             throw new BusinessRuleViolationException("Finalized and paid payruns cannot be recomputed");
         }
 
-        payrun.getPayslips().clear();
+        if (payrun.getPayslips() != null && !payrun.getPayslips().isEmpty()) {
+            payslipRepository.deleteAll(payrun.getPayslips());
+            payrun.getPayslips().clear();
+        }
 
         SalaryStructure structure = structureRepository.findWithActiveRulesById(payrun.getSalaryStructure().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("SalaryStructure", "id", payrun.getSalaryStructure().getId()));
@@ -113,13 +124,30 @@ public class PayrollService {
         payrun.setPayslipsCount(payrun.getPayslips().size());
         payrun.setStatus(PayrunStatus.COMPUTED);
 
-        return payrunRepository.save(payrun);
+        payrunRepository.saveAndFlush(payrun);
+        payslipRepository.saveAllAndFlush(payrun.getPayslips());
+        return payrun;
     }
 
+    @Transactional
     public List<PayrollWarning> validatePayrun(UUID payrunId) {
         Payrun payrun = payrunRepository.findWithPayslipsById(payrunId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payrun", "id", payrunId));
-        return validationScanner.scan(payrun.getPayslips());
+
+        if (payrun.getStatus() == PayrunStatus.PAID) {
+            throw new BusinessRuleViolationException("Payrun is already finalized and paid");
+        }
+
+        List<PayrollWarning> warnings = validationScanner.scan(payrun.getPayslips());
+
+        boolean hasCritical = warnings.stream().anyMatch(w -> CRITICAL_CODES.contains(w.warningCode()));
+        if (!hasCritical) {
+            // Clean scan — advance to VALIDATED so markAsPaid knows the officer reviewed it.
+            payrun.setStatus(PayrunStatus.VALIDATED);
+            payrunRepository.save(payrun);
+        }
+
+        return warnings;
     }
 
     @Transactional
@@ -129,6 +157,19 @@ public class PayrollService {
 
         if (payrun.getStatus() != PayrunStatus.COMPUTED && payrun.getStatus() != PayrunStatus.VALIDATED) {
             throw new BusinessRuleViolationException("Only computed or validated payruns can be marked as paid");
+        }
+
+        // Re-run the scanner every time to catch data that changed after compute.
+        List<PayrollWarning> warnings = validationScanner.scan(payrun.getPayslips());
+        List<String> blockers = warnings.stream()
+                .filter(w -> CRITICAL_CODES.contains(w.warningCode()))
+                .map(w -> w.employeeName() + ": " + w.message())
+                .toList();
+
+        if (!blockers.isEmpty()) {
+            throw new BusinessRuleViolationException(
+                    "Payrun has critical validation failures and cannot be disbursed: " + String.join("; ", blockers)
+            );
         }
 
         payrun.setStatus(PayrunStatus.PAID);

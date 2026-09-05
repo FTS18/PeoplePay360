@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { TrendingUp, BarChart2 } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
 
 interface PayrollTrend {
@@ -10,27 +10,22 @@ interface PayrollTrend {
   payslipCount: number;
 }
 
-const FALLBACK_TRENDS: PayrollTrend[] = [
-  { yearMonth: "2026-05", totalNetSalary: 48000, payslipCount: 7 },
-  { yearMonth: "2026-06", totalNetSalary: 51200, payslipCount: 7 },
-  { yearMonth: "2026-07", totalNetSalary: 54200, payslipCount: 8 },
-  { yearMonth: "2026-08", totalNetSalary: 54200, payslipCount: 8 },
-  { yearMonth: "2026-09", totalNetSalary: 5400, payslipCount: 2 },
-];
-
 interface PayrollTrendWidgetProps {
   sinceDate?: string;
 }
 
 export function PayrollTrendWidget({ sinceDate }: PayrollTrendWidgetProps) {
-  const [trends, setTrends] = useState<PayrollTrend[]>(FALLBACK_TRENDS);
+  const [trends, setTrends] = useState<PayrollTrend[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
     const url = sinceDate ? `/dashboard/monthly-trends?sinceDate=${sinceDate}` : "/dashboard/monthly-trends";
     apiClient
       .get<any[]>(url)
       .then((data) => {
+        if (!isMounted) return;
         if (data && data.length > 0) {
           const mapped: PayrollTrend[] = data.map((t: any) => {
             let ym = t.yearMonth;
@@ -44,13 +39,23 @@ export function PayrollTrendWidget({ sinceDate }: PayrollTrendWidgetProps) {
             };
           });
           setTrends(mapped);
+        } else {
+          setTrends([]);
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (isMounted) setTrends([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [sinceDate]);
 
-  const maxSalary = Math.max(...trends.map((t) => Number(t.totalNetSalary || 0)), 60000);
+  const maxSalary = Math.max(...trends.map((t) => Number(t.totalNetSalary || 0)), 1000);
 
   return (
     <div className="bg-white rounded-2xl border border-stone-200/80 p-5 shadow-xs space-y-4">
@@ -66,29 +71,43 @@ export function PayrollTrendWidget({ sinceDate }: PayrollTrendWidgetProps) {
         </div>
       </div>
 
-      <div className="pt-2 flex items-end justify-between gap-3 h-36">
-        {trends.map((item) => {
-          const salary = Number(item.totalNetSalary || 0);
-          const heightPercent = maxSalary > 0 ? Math.max(Math.round((salary / maxSalary) * 100), 12) : 15;
-          const monthLabel = item.yearMonth.split("-")[1] || item.yearMonth;
-          return (
-            <div key={item.yearMonth} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-              <div className="text-[10px] font-bold text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity tabular-nums">
-                ${salary >= 1000 ? `${(salary / 1000).toFixed(1)}k` : salary}
-              </div>
-              <div className="w-full bg-stone-100 rounded-lg h-24 flex items-end p-0.5 overflow-hidden">
-                <div
-                  className="w-full bg-[oklch(28%_0.06_195)] group-hover:bg-[oklch(24%_0.06_195)] rounded-md transition-all duration-300"
-                  style={{ height: `${heightPercent}%` }}
-                />
-              </div>
-              <span className="text-[10px] font-semibold text-stone-500 uppercase tracking-tight">
-                {item.yearMonth}
-              </span>
+      {loading ? (
+        <div className="pt-2 flex items-end justify-between gap-3 h-36 animate-pulse">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+              <div className="w-full bg-stone-100 rounded-lg h-24" />
+              <div className="h-2.5 w-10 bg-stone-100 rounded" />
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : trends.length === 0 ? (
+        <div className="h-36 flex items-center justify-center text-xs text-stone-400">
+          No historical disbursement records found.
+        </div>
+      ) : (
+        <div className="pt-2 flex items-end justify-between gap-3 h-36">
+          {trends.map((item) => {
+            const salary = Number(item.totalNetSalary || 0);
+            const heightPercent = maxSalary > 0 ? Math.max(Math.round((salary / maxSalary) * 100), 16) : 16;
+            return (
+              <div key={item.yearMonth} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
+                <div className="text-[10px] font-bold text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity tabular-nums">
+                  ${salary >= 1000 ? `${(salary / 1000).toFixed(1)}k` : salary}
+                </div>
+                <div className="w-full bg-stone-100 rounded-lg h-24 flex items-end p-0.5 overflow-hidden">
+                  <div
+                    className="w-full bg-[oklch(28%_0.06_195)] group-hover:bg-[oklch(24%_0.06_195)] rounded-md transition-all duration-300"
+                    style={{ height: `${heightPercent}%` }}
+                  />
+                </div>
+                <span className="text-[10px] font-semibold text-stone-500 uppercase tracking-tight">
+                  {item.yearMonth}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

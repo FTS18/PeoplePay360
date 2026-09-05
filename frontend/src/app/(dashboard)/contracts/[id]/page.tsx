@@ -96,7 +96,7 @@ export default function ContractDetailPage() {
           <div className="space-y-3 text-xs">
             <div>
               <span className="text-(--muted-foreground)">Monthly Base Wage</span>
-              <p className="text-xl font-bold text-(--foreground) mt-0.5 tabular-nums">
+              <p className="text-xl font-bold text-(--foreground) mt-0.5 tabular-nums" suppressHydrationWarning>
                 ${Number(contract.monthlyWage).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>

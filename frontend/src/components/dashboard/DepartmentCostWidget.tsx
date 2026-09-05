@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Building2, TrendingUp } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
 
 interface DepartmentCost {
@@ -10,27 +10,23 @@ interface DepartmentCost {
   totalCost: number;
 }
 
-const FALLBACK_COSTS: DepartmentCost[] = [
-  { departmentName: "Engineering", employeeCount: 3, totalCost: 65000 },
-  { departmentName: "Finance", employeeCount: 2, totalCost: 42000 },
-  { departmentName: "Product", employeeCount: 1, totalCost: 24000 },
-  { departmentName: "Executive", employeeCount: 1, totalCost: 15000 },
-];
-
 interface DepartmentCostWidgetProps {
   sinceDate?: string;
   selectedDepartment?: string;
 }
 
 export function DepartmentCostWidget({ sinceDate, selectedDepartment }: DepartmentCostWidgetProps) {
-  const [costs, setCosts] = useState<DepartmentCost[]>(FALLBACK_COSTS);
+  const [costs, setCosts] = useState<DepartmentCost[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
     const url = sinceDate ? `/dashboard/department-costs?sinceDate=${sinceDate}` : "/dashboard/department-costs";
     apiClient
       .get<any[]>(url)
       .then((data) => {
+        if (!isMounted) return;
         if (data && data.length > 0) {
           const mapped: DepartmentCost[] = data.map((d: any) => ({
             departmentName: d.department || d.departmentName || "General",
@@ -38,10 +34,20 @@ export function DepartmentCostWidget({ sinceDate, selectedDepartment }: Departme
             totalCost: Number(d.totalNet ?? d.totalCost ?? 0),
           }));
           setCosts(mapped);
+        } else {
+          setCosts([]);
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (isMounted) setCosts([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [sinceDate]);
 
   const filteredCosts = selectedDepartment
@@ -62,41 +68,63 @@ export function DepartmentCostWidget({ sinceDate, selectedDepartment }: Departme
             <p className="text-[11px] text-stone-500">Live operational cost distribution across workforce units</p>
           </div>
         </div>
-        <span className="text-xs font-bold text-stone-900 tabular-nums">
-          ${totalExpenditure.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </span>
+        {loading ? (
+          <div className="h-4 w-16 bg-stone-100 rounded animate-pulse" />
+        ) : (
+          <span className="text-xs font-bold text-stone-900 tabular-nums" suppressHydrationWarning>
+            ${totalExpenditure.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        )}
       </div>
 
-      <div className="space-y-3 pt-1">
-        {filteredCosts.map((dept) => {
-          const cost = Number(dept.totalCost || 0);
-          const percent = totalExpenditure > 0 ? Math.round((cost / totalExpenditure) * 100) : 0;
-          return (
-            <div key={dept.departmentName} className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-stone-800">{dept.departmentName}</span>
-                  <span className="text-[10px] text-stone-400 font-medium">
-                    ({dept.employeeCount} staff)
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 tabular-nums">
-                  <span className="font-bold text-stone-900">
-                    ${cost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                  <span className="text-[10px] text-stone-500 w-7 text-right">{percent}%</span>
-                </div>
+      {loading ? (
+        <div className="space-y-3 pt-1 animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="h-3 w-28 bg-stone-100 rounded" />
+                <div className="h-3 w-16 bg-stone-100 rounded" />
               </div>
-              <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[oklch(28%_0.06_195)] rounded-full transition-all duration-500"
-                  style={{ width: `${percent}%` }}
-                />
-              </div>
+              <div className="h-2 w-full bg-stone-100 rounded-full" />
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : filteredCosts.length === 0 ? (
+        <div className="py-6 text-center text-xs text-stone-400">
+          No validated payroll disbursement records found for this period.
+        </div>
+      ) : (
+        <div className="space-y-3 pt-1">
+          {filteredCosts.map((dept) => {
+            const cost = Number(dept.totalCost || 0);
+            const percent = totalExpenditure > 0 ? Math.round((cost / totalExpenditure) * 100) : 0;
+            return (
+              <div key={dept.departmentName} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-stone-800">{dept.departmentName}</span>
+                    <span className="text-[10px] text-stone-400 font-medium">
+                      ({dept.employeeCount} staff)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 tabular-nums">
+                    <span className="font-bold text-stone-900" suppressHydrationWarning>
+                      ${cost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-[10px] text-stone-500 w-7 text-right">{percent}%</span>
+                  </div>
+                </div>
+                <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[oklch(28%_0.06_195)] rounded-full transition-all duration-500"
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

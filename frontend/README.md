@@ -5,14 +5,14 @@ Next.js 15 enterprise payroll & human resource operations portal built with Type
 ## Getting Started
 
 1. Install dependencies:
-\\\ash
+```bash
 npm install
-\\\
+```
 
 2. Run development server:
-\\\ash
+```bash
 npm run dev
-\\\
+```
 
 Default URL: http://localhost:3000
 API Gateway rewrites: http://localhost:8080/api/v1
