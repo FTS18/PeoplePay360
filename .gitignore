@@ -1,0 +1,8 @@
+# Local artifacts and diffs
+diff.txt
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
