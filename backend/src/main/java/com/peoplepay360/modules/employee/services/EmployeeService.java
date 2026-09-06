@@ -70,23 +70,27 @@ public class EmployeeService {
             throw new BusinessRuleViolationException("Employee code is already in use: " + request.getEmployeeCode());
         }
 
-        Employee manager = request.getManagerId() != null
-                ? employeeRepository.findById(request.getManagerId()).orElse(null)
-                : null;
+        Employee manager = null;
+        if (request.getManagerId() != null) {
+            manager = employeeRepository.findById(request.getManagerId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Manager Employee", "id", request.getManagerId()));
+        }
 
-        WorkingSchedule schedule = request.getWorkingScheduleId() != null
-                ? scheduleRepository.findById(request.getWorkingScheduleId()).orElse(null)
-                : null;
+        WorkingSchedule schedule = null;
+        if (request.getWorkingScheduleId() != null) {
+            schedule = scheduleRepository.findById(request.getWorkingScheduleId())
+                    .orElseThrow(() -> new ResourceNotFoundException("WorkingSchedule", "id", request.getWorkingScheduleId()));
+        }
 
         Employee employee = Employee.builder()
-                .employeeCode(request.getEmployeeCode())
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
-                .email(request.getEmail())
+                .employeeCode(request.getEmployeeCode().trim())
+                .firstName(request.getFirstName().trim())
+                .lastName(request.getLastName().trim())
+                .email(request.getEmail().trim().toLowerCase())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .phone(request.getPhone())
-                .department(request.getDepartment())
-                .jobPosition(request.getJobPosition())
+                .department(request.getDepartment().trim())
+                .jobPosition(request.getJobPosition().trim())
                 .manager(manager)
                 .workingSchedule(schedule)
                 .role(request.getRole())
@@ -116,16 +120,16 @@ public class EmployeeService {
             if (employeeRepository.existsByEmail(request.getEmail().trim())) {
                 throw new BusinessRuleViolationException("Email is already registered: " + request.getEmail());
             }
-            employee.setEmail(request.getEmail().trim());
+            employee.setEmail(request.getEmail().trim().toLowerCase());
         }
         if (request.getPhone() != null) {
             employee.setPhone(request.getPhone());
         }
         if (request.getDepartment() != null && !request.getDepartment().isBlank()) {
-            employee.setDepartment(request.getDepartment());
+            employee.setDepartment(request.getDepartment().trim());
         }
         if (request.getJobPosition() != null && !request.getJobPosition().isBlank()) {
-            employee.setJobPosition(request.getJobPosition());
+            employee.setJobPosition(request.getJobPosition().trim());
         }
         if (request.getRole() != null) {
             employee.setRole(request.getRole());
@@ -147,11 +151,16 @@ public class EmployeeService {
         }
 
         if (request.getManagerId() != null) {
-            Employee manager = employeeRepository.findById(request.getManagerId()).orElse(null);
+            if (request.getManagerId().equals(id)) {
+                throw new BusinessRuleViolationException("An employee cannot be their own manager");
+            }
+            Employee manager = employeeRepository.findById(request.getManagerId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Manager Employee", "id", request.getManagerId()));
             employee.setManager(manager);
         }
         if (request.getWorkingScheduleId() != null) {
-            WorkingSchedule schedule = scheduleRepository.findById(request.getWorkingScheduleId()).orElse(null);
+            WorkingSchedule schedule = scheduleRepository.findById(request.getWorkingScheduleId())
+                    .orElseThrow(() -> new ResourceNotFoundException("WorkingSchedule", "id", request.getWorkingScheduleId()));
             employee.setWorkingSchedule(schedule);
         }
 

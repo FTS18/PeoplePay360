@@ -87,8 +87,8 @@ public class PayrollService {
         }
 
         if (payrun.getPayslips() != null && !payrun.getPayslips().isEmpty()) {
-            payslipRepository.deleteAll(payrun.getPayslips());
             payrun.getPayslips().clear();
+            payrunRepository.saveAndFlush(payrun);
         }
 
         SalaryStructure structure = structureRepository.findWithActiveRulesById(payrun.getSalaryStructure().getId())
@@ -185,6 +185,10 @@ public class PayrollService {
 
         if (payrun.getStatus() != PayrunStatus.COMPUTED && payrun.getStatus() != PayrunStatus.VALIDATED) {
             throw new BusinessRuleViolationException("Only computed or validated payruns can be marked as paid");
+        }
+
+        if (payrun.getPayslips() == null || payrun.getPayslips().isEmpty()) {
+            throw new BusinessRuleViolationException("Cannot disburse a payrun with zero payslips. Please compute the batch first.");
         }
 
         List<PayrollWarning> warnings = validationScanner.scan(payrun.getPayslips());

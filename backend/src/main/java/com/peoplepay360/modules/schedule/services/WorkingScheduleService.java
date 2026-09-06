@@ -1,5 +1,6 @@
 package com.peoplepay360.modules.schedule.services;
 
+import com.peoplepay360.exception.BusinessRuleViolationException;
 import com.peoplepay360.exception.ResourceNotFoundException;
 import com.peoplepay360.modules.schedule.entities.WorkingSchedule;
 import com.peoplepay360.modules.schedule.entities.WorkingScheduleLine;
@@ -20,6 +21,8 @@ import java.util.UUID;
 public class WorkingScheduleService {
 
     private final WorkingScheduleRepository scheduleRepository;
+    private final com.peoplepay360.modules.employee.repositories.EmployeeRepository employeeRepository;
+    private final com.peoplepay360.modules.contract.repositories.ContractRepository contractRepository;
 
     public List<WorkingSchedule> getAllSchedules() {
         return scheduleRepository.findAllWithLines();
@@ -39,6 +42,12 @@ public class WorkingScheduleService {
     @Transactional
     public void deleteSchedule(UUID id) {
         WorkingSchedule schedule = getScheduleById(id);
+        if (employeeRepository.existsByWorkingScheduleId(id)) {
+            throw new BusinessRuleViolationException("Cannot delete working schedule: active employees are currently assigned to this schedule");
+        }
+        if (contractRepository.existsByWorkingScheduleId(id)) {
+            throw new BusinessRuleViolationException("Cannot delete working schedule: active contracts are currently assigned to this schedule");
+        }
         scheduleRepository.delete(schedule);
     }
 
@@ -46,13 +55,34 @@ public class WorkingScheduleService {
         BigDecimal totalWeekly = BigDecimal.ZERO;
 
         if (schedule.getLines() != null && !schedule.getLines().isEmpty()) {
+            java.util.Set<java.time.DayOfWeek> seenDays = new java.util.HashSet<>();
             for (WorkingScheduleLine line : schedule.getLines()) {
+                if (line.getDayOfWeek() == null) {
+                    throw new BusinessRuleViolationException("Day of week is required");
+                }
+                if (!seenDays.add(line.getDayOfWeek())) {
+                    throw new BusinessRuleViolationException("Duplicate working schedule line for " + line.getDayOfWeek());
+                }
+                if (line.getStartTime() == null || line.getEndTime() == null) {
+                    throw new BusinessRuleViolationException("Start time and end time are required for " + line.getDayOfWeek());
+                }
+                if (!line.getEndTime().isAfter(line.getStartTime())) {
+                    throw new BusinessRuleViolationException("End time (" + line.getEndTime() + ") must be after start time (" + line.getStartTime() + ") for " + line.getDayOfWeek());
+                }
+
                 long minutes = Duration.between(line.getStartTime(), line.getEndTime()).toMinutes();
                 BigDecimal shiftHours = BigDecimal.valueOf(minutes)
                         .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
 
                 BigDecimal breakHours = line.getBreakHours() != null ? line.getBreakHours() : BigDecimal.ZERO;
-                BigDecimal netWorkHours = shiftHours.subtract(breakHours).max(BigDecimal.ZERO);
+                if (breakHours.compareTo(BigDecimal.ZERO) < 0) {
+                    throw new BusinessRuleViolationException("Break hours cannot be negative for " + line.getDayOfWeek());
+                }
+                if (breakHours.compareTo(shiftHours) >= 0) {
+                    throw new BusinessRuleViolationException("Break hours (" + breakHours + "h) must be strictly less than shift duration (" + shiftHours + "h) for " + line.getDayOfWeek());
+                }
+
+                BigDecimal netWorkHours = shiftHours.subtract(breakHours);
 
                 line.setWorkHours(netWorkHours);
                 line.setWorkingSchedule(schedule);

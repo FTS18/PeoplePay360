@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Users, FileText, CalendarDays, DollarSign, Calendar, Building2, UserCheck, Briefcase } from "lucide-react";
+import { Users, FileText, CalendarDays, IndianRupee, Calendar, Building2, UserCheck, Briefcase } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { PunchClockWidget } from "@/components/dashboard/PunchClockWidget";
 import { RecentPayrunTable } from "@/components/dashboard/RecentPayrunTable";
@@ -12,8 +12,8 @@ import { PayslipStatusWidget } from "@/components/dashboard/PayslipStatusWidget"
 import { PayrollWarningsWidget, PayrollWarning } from "@/components/dashboard/PayrollWarningsWidget";
 import { TimeOffOverviewWidget } from "@/components/dashboard/TimeOffOverviewWidget";
 import { AttendanceOverviewWidget } from "@/components/dashboard/AttendanceOverviewWidget";
-import { DepartmentOverviewWidget } from "@/components/dashboard/DepartmentOverviewWidget";
-import { ModelsToAggregateWidget } from "@/components/dashboard/ModelsToAggregateWidget";
+import { WorkforceCapacityWidget } from "@/components/dashboard/WorkforceCapacityWidget";
+import { QuickActionsWidget } from "@/components/dashboard/QuickActionsWidget";
 import { apiClient } from "@/services/apiClient";
 import { payrollService } from "@/services/payrollService";
 import { attendanceService } from "@/services/attendanceService";
@@ -217,7 +217,7 @@ export default function DashboardPage() {
             title="My Latest Net Salary"
             value={recentPayruns.length > 0 ? recentPayruns[0].totalDisbursed : "₹ 0"}
             subtitle="Net pay from latest payslip"
-            icon={DollarSign}
+            icon={IndianRupee}
             accent="teal"
             loading={loadingMetrics}
           />
@@ -275,12 +275,12 @@ export default function DashboardPage() {
             Payroll Dashboard
           </h1>
           <p className="text-xs text-muted-foreground">
-            Dashboard should help payroll/HR users understand payments, staffing impact, leave patterns, and attendance quality for the selected period.
+            Executive oversight of payroll disbursements, workforce capacity, attendance trends, and leave settlement cycles.
           </p>
         </div>
 
         {/* 4 Filter Controls: Period, Department, Employee Type, Company */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center justify-end gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-xs">
             <span className="text-muted-foreground font-semibold">Period:</span>
             <select
@@ -340,7 +340,7 @@ export default function DashboardPage() {
           title="Total Net Salary Paid"
           value={metrics.totalNetSalaryPaid}
           subtitle="+8.2% vs previous month"
-          icon={DollarSign}
+          icon={IndianRupee}
           accent="teal"
           loading={loadingMetrics}
         />
@@ -380,13 +380,9 @@ export default function DashboardPage() {
 
       {/* Middle Visual Analytics Row matching Wireframe 6 (3 Columns) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-stretch">
-        <div>
-          <DepartmentCostWidget sinceDate={sinceDate} selectedDepartment={selectedDepartment} />
-        </div>
-        <div>
-          <PayrollTrendWidget sinceDate={sinceDate} />
-        </div>
-        <div className="space-y-4 flex flex-col justify-between">
+        <DepartmentCostWidget sinceDate={sinceDate} selectedDepartment={selectedDepartment} />
+        <PayrollTrendWidget sinceDate={sinceDate} />
+        <div className="space-y-4 flex flex-col justify-between h-full">
           <PayslipStatusWidget
             draftCount={payslipCounts.draft}
             computedCount={payslipCounts.computed}
@@ -397,42 +393,34 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Bottom Operational Breakdown Row matching Wireframe 6 (4 Columns) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4 items-stretch">
-        <div>
-          <AttendanceOverviewWidget
-            presentCount={metrics.todayPresentCount}
-            lateCount={metrics.todayLateCount}
-            absentCount={metrics.todayAbsentCount}
-            overtimeCount={metrics.todayOvertimeCount}
-            missingCheckInsCount={metrics.todayMissingCheckInsCount}
-            manualEditsCount={metrics.manualAttendanceEditsCount}
-            coverageRatio={metrics.attendanceHealthRatio}
-          />
-        </div>
-        <div>
-          <TimeOffOverviewWidget
-            pendingCount={metrics.pendingLeaves}
-            approvedCount={parseInt(metrics.approvedTimeOffDays) || 0}
-            refusedCount={metrics.refusedLeaves}
-          />
-        </div>
-        <div>
-          <DepartmentOverviewWidget />
-        </div>
-        <div>
-          <ModelsToAggregateWidget />
-        </div>
+      {/* Bottom Operational Breakdown Row (3 Columns) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-stretch">
+        <AttendanceOverviewWidget
+          presentCount={metrics.todayPresentCount}
+          lateCount={metrics.todayLateCount}
+          absentCount={metrics.todayAbsentCount}
+          overtimeCount={metrics.todayOvertimeCount}
+          missingCheckInsCount={metrics.todayMissingCheckInsCount}
+          manualEditsCount={metrics.manualAttendanceEditsCount}
+          coverageRatio={metrics.attendanceHealthRatio}
+        />
+        <TimeOffOverviewWidget
+          pendingCount={metrics.pendingLeaves}
+          approvedCount={parseInt(metrics.approvedTimeOffDays) || 0}
+          refusedCount={metrics.refusedLeaves}
+        />
+        <WorkforceCapacityWidget totalEmployees={260} />
       </div>
 
-      {/* Operational Punch Clock Split */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {/* Operational Feeds & Punch Split */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-start">
         <div className="lg:col-span-2 space-y-6">
           <RecentPayrunTable payruns={recentPayruns} />
           <QuickAttendanceFeed records={todayAttendance} />
         </div>
         <div id="punch-clock-widget" className="space-y-6">
           <PunchClockWidget />
+          <QuickActionsWidget pendingLeaves={metrics.pendingLeaves} />
         </div>
       </div>
     </div>

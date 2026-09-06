@@ -79,30 +79,38 @@ public class ContractController {
     public ResponseEntity<ApiResponse<ContractResponse>> createContract(
             @Valid @RequestBody CreateContractRequest request
     ) {
+        String ref = request.getReference().trim();
+        if (contractRepository.existsByReference(ref)) {
+            throw new com.peoplepay360.exception.BusinessRuleViolationException(
+                    "A contract with reference '" + ref + "' already exists");
+        }
+
         Employee employee = employeeRepository.findById(request.getEmployeeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", request.getEmployeeId()));
 
         SalaryStructure structure = structureRepository.findById(request.getSalaryStructureId())
                 .orElseThrow(() -> new ResourceNotFoundException("SalaryStructure", "id", request.getSalaryStructureId()));
 
-        UUID scheduleId = request.getWorkingScheduleId() != null
-                ? request.getWorkingScheduleId()
-                : (employee.getWorkingSchedule() != null ? employee.getWorkingSchedule().getId() : null);
-
-        WorkingSchedule schedule = scheduleId != null
-                ? scheduleRepository.findById(scheduleId).orElse(null)
-                : scheduleRepository.findAll().stream().findFirst().orElse(null);
+        WorkingSchedule schedule;
+        if (request.getWorkingScheduleId() != null) {
+            schedule = scheduleRepository.findById(request.getWorkingScheduleId())
+                    .orElseThrow(() -> new ResourceNotFoundException("WorkingSchedule", "id", request.getWorkingScheduleId()));
+        } else if (employee.getWorkingSchedule() != null) {
+            schedule = employee.getWorkingSchedule();
+        } else {
+            schedule = scheduleRepository.findAll().stream().findFirst().orElse(null);
+        }
 
         String dept = request.getDepartment() != null && !request.getDepartment().isBlank()
-                ? request.getDepartment()
+                ? request.getDepartment().trim()
                 : employee.getDepartment();
 
         String position = request.getJobPosition() != null && !request.getJobPosition().isBlank()
-                ? request.getJobPosition()
+                ? request.getJobPosition().trim()
                 : employee.getJobPosition();
 
         Contract contract = Contract.builder()
-                .reference(request.getReference())
+                .reference(ref)
                 .employee(employee)
                 .department(dept)
                 .jobPosition(position)
@@ -117,6 +125,59 @@ public class ContractController {
         Contract saved = contractService.saveContract(contract);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Contract created successfully", ContractResponse.from(saved)));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<ContractResponse>> updateContract(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateContractRequest request
+    ) {
+        Contract contract = contractService.getContractById(id);
+
+        String ref = request.getReference().trim();
+        if (!ref.equalsIgnoreCase(contract.getReference()) && contractRepository.existsByReference(ref)) {
+            throw new com.peoplepay360.exception.BusinessRuleViolationException(
+                    "A contract with reference '" + ref + "' already exists");
+        }
+
+        Employee employee = employeeRepository.findById(request.getEmployeeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", request.getEmployeeId()));
+
+        SalaryStructure structure = structureRepository.findById(request.getSalaryStructureId())
+                .orElseThrow(() -> new ResourceNotFoundException("SalaryStructure", "id", request.getSalaryStructureId()));
+
+        WorkingSchedule schedule;
+        if (request.getWorkingScheduleId() != null) {
+            schedule = scheduleRepository.findById(request.getWorkingScheduleId())
+                    .orElseThrow(() -> new ResourceNotFoundException("WorkingSchedule", "id", request.getWorkingScheduleId()));
+        } else {
+            schedule = contract.getWorkingSchedule();
+        }
+
+        String dept = request.getDepartment() != null && !request.getDepartment().isBlank()
+                ? request.getDepartment().trim()
+                : employee.getDepartment();
+
+        String position = request.getJobPosition() != null && !request.getJobPosition().isBlank()
+                ? request.getJobPosition().trim()
+                : employee.getJobPosition();
+
+        contract.setReference(ref);
+        contract.setEmployee(employee);
+        contract.setDepartment(dept);
+        contract.setJobPosition(position);
+        contract.setSalaryStructure(structure);
+        contract.setWorkingSchedule(schedule);
+        contract.setWage(request.getWage());
+        contract.setStartDate(request.getStartDate());
+        contract.setEndDate(request.getEndDate());
+        if (request.getStatus() != null) {
+            contract.setStatus(request.getStatus());
+        }
+
+        Contract saved = contractService.saveContract(contract);
+        return ResponseEntity.ok(ApiResponse.ok("Contract updated successfully", ContractResponse.from(saved)));
     }
 
     @PutMapping("/{id}/terminate")

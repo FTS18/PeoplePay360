@@ -1,6 +1,8 @@
 package com.peoplepay360.modules.attendance.dto.requests;
 
 import com.peoplepay360.common.enums.AttendanceStatus;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -23,6 +25,8 @@ public class AttendanceOverrideRequest {
     private Instant checkOut;
 
     @NotNull(message = "Worked hours is required")
+    @DecimalMin(value = "0.0", message = "Worked hours cannot be negative")
+    @DecimalMax(value = "24.0", message = "Worked hours cannot exceed 24 hours per day")
     private BigDecimal workedHours;
 
     @NotNull(message = "Status is required")

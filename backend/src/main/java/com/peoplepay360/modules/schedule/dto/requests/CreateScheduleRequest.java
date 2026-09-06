@@ -19,10 +19,11 @@ import java.util.List;
 public class CreateScheduleRequest {
 
     @NotBlank(message = "Schedule name is required")
+    @jakarta.validation.constraints.Size(min = 2, max = 100, message = "Schedule name must be between 2 and 100 characters")
     private String name;
 
     @NotNull(message = "Schedule type is required")
     private ScheduleType type;
 
-    private List<ScheduleLineDto> lines;
+    private List<@jakarta.validation.Valid ScheduleLineDto> lines;
 }

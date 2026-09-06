@@ -16,10 +16,10 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (employeeRepository.count() < 10) {
-            log.info("Fresh database detected. Seeding full enterprise dataset (~260 employees)...");
+        if (employeeRepository.count() < 250) {
+            log.info("Populating full enterprise dataset (260 employees across 7 departments)...");
             enterpriseDataSeeder.seedCompleteEnterprise();
-            log.info("Enterprise dataset initialized.");
+            log.info("Enterprise dataset initialized successfully.");
         } else {
             log.info("Database already populated ({} employees). Skipping seed.", employeeRepository.count());
         }

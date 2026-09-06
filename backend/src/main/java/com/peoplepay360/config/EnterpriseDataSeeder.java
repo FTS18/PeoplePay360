@@ -16,6 +16,7 @@ import com.peoplepay360.modules.timeoff.repositories.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.peoplepay360.modules.dashboard.repositories.DashboardQueryRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +47,7 @@ public class EnterpriseDataSeeder {
     private final PayrunRepository payrunRepository;
     private final PayslipRepository payslipRepository;
     private final PayslipLineRepository payslipLineRepository;
+    private final DashboardQueryRepository dashboardQueryRepository;
     private final PasswordEncoder passwordEncoder;
 
     // Pre-computed BCrypt hashes — avoid 260 individual encode() calls at startup
@@ -154,8 +156,8 @@ public class EnterpriseDataSeeder {
         seedLeaveAllocations(allEmployees, leaveTypes);
 
         // ── Level 3: Operational activity ───────────────────────────────────
-        seedAttendance(allEmployees);
-        seedLeaveRequests(allEmployees, leaveTypes);
+        List<TimeOffRequest> leaveRequests = seedLeaveRequests(allEmployees, leaveTypes);
+        seedAttendance(allEmployees, leaveRequests);
 
         // ── Level 4: Payroll ledger ──────────────────────────────────────────
         seedPayruns(allEmployees, stdStructure, execStructure);
@@ -345,8 +347,27 @@ public class EnterpriseDataSeeder {
             Role icRole = resolveIcRole(mgr.getDepartment(), i);
             WorkingSchedule sched = mgr.getDepartment().equals("Customer Support") ? shift : std40h;
 
-            // Stagger joining dates realistically: Jan 2023 – Jun 2026
-            LocalDate joiningDate = LocalDate.of(2023, 1, 5).plusDays((long) i * 4);
+            // Stagger joining dates realistically across 2023 - August 2026
+            LocalDate joiningDate;
+            if (i < 120) {
+                joiningDate = LocalDate.of(2023, 1, 10).plusDays((long) i * 6);
+            } else if (i < 180) {
+                joiningDate = LocalDate.of(2025, 1, 15).plusDays((long) (i - 120) * 6);
+            } else if (i < 195) {
+                joiningDate = LocalDate.of(2026, 1, 10).plusDays((long) (i - 180) * 3);
+            } else if (i < 205) {
+                joiningDate = LocalDate.of(2026, 3, 2).plusDays((long) (i - 195) * 2);
+            } else if (i < 213) {
+                joiningDate = LocalDate.of(2026, 4, 1).plusDays((long) (i - 205) * 3);
+            } else if (i < 221) {
+                joiningDate = LocalDate.of(2026, 5, 2).plusDays((long) (i - 213) * 3);
+            } else if (i < 227) {
+                joiningDate = LocalDate.of(2026, 6, 1).plusDays((long) (i - 221) * 4);
+            } else if (i < 231) {
+                joiningDate = LocalDate.of(2026, 7, 1).plusDays((long) (i - 227) * 7);
+            } else {
+                joiningDate = LocalDate.of(2026, 8, 1).plusDays((long) (i - 231) * 6);
+            }
 
             boolean isInactive = i >= 230; // last 5 are INACTIVE (terminated employees)
 
@@ -395,6 +416,7 @@ public class EnterpriseDataSeeder {
                 .employeeCode(code)
                 .firstName(fn).lastName(ln)
                 .email(email).password(password)
+                .phone(String.format("+91 9%09d", Math.abs(800000000L + (seed * 1337L) % 199999999L)))
                 .department(dept).jobPosition(title)
                 .role(role)
                 .status(EmployeeStatus.ACTIVE)
@@ -499,7 +521,7 @@ public class EnterpriseDataSeeder {
     // LEAVE REQUESTS — varied statuses, varied months, realistic spread
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void seedLeaveRequests(List<Employee> employees, Map<String, TimeOffType> types) {
+    private List<TimeOffRequest> seedLeaveRequests(List<Employee> employees, Map<String, TimeOffType> types) {
         List<TimeOffRequest> requests = new ArrayList<>(400);
         List<Employee> activeEmps = employees.stream()
                 .filter(e -> e.getStatus() == EmployeeStatus.ACTIVE)
@@ -550,7 +572,7 @@ public class EnterpriseDataSeeder {
                     .rejectionReason(status == TimeOffStatus.REFUSED ? "Leave balance insufficient or team capacity constraints" : null)
                     .build());
         }
-        requestRepository.saveAll(requests);
+        return requestRepository.saveAll(requests);
     }
 
     private static final String[][] LEAVE_REASONS = {
@@ -572,20 +594,50 @@ public class EnterpriseDataSeeder {
     };
 
     // ─────────────────────────────────────────────────────────────────────────
-    // ATTENDANCE — 14 working days per active employee, realistic variation
+    // ATTENDANCE — Full 6-month history synchronized with approved leave requests
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void seedAttendance(List<Employee> employees) {
-        List<AttendanceRecord> records = new ArrayList<>(260 * 14);
+    private void seedAttendance(List<Employee> employees, List<TimeOffRequest> leaveRequests) {
+        List<AttendanceRecord> records = new ArrayList<>(260 * 135);
         LocalDate today = LocalDate.now();
-        Random rng = new Random(42); // fixed seed for reproducible but varied data
+        Random rng = new Random(42);
+
+        // Pre-index approved leaves by (employeeId:date) for O(1) matching
+        Map<String, TimeOffRequest> leaveMap = new HashMap<>();
+        for (TimeOffRequest req : leaveRequests) {
+            if (req.getStatus() == TimeOffStatus.APPROVED) {
+                LocalDate c = req.getStartDate();
+                while (!c.isAfter(req.getEndDate())) {
+                    leaveMap.put(req.getEmployee().getId() + ":" + c, req);
+                    c = c.plusDays(1);
+                }
+            }
+        }
 
         for (Employee emp : employees) {
             if (emp.getStatus() == EmployeeStatus.INACTIVE) continue;
 
-            for (int daysAgo = 1; daysAgo <= 150; daysAgo++) {
+            for (int daysAgo = 1; daysAgo <= 190; daysAgo++) {
                 LocalDate date = today.minusDays(daysAgo);
                 if (date.getDayOfWeek().getValue() > 5) continue; // skip weekends
+
+                String key = emp.getId() + ":" + date;
+                TimeOffRequest leave = leaveMap.get(key);
+                if (leave != null) {
+                    boolean isPaid = leave.getTimeOffType().isPaid();
+                    records.add(AttendanceRecord.builder()
+                            .employee(emp).date(date)
+                            .checkIn(isPaid ? date.atTime(9, 0).toInstant(ZoneOffset.UTC) : null)
+                            .checkOut(isPaid ? date.atTime(18, 0).toInstant(ZoneOffset.UTC) : null)
+                            .workedHours(isPaid ? BD(8) : BigDecimal.ZERO)
+                            .expectedHours(BD(8))
+                            .status(isPaid ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT)
+                            .manualOverride(true)
+                            .overrideReason("Approved Time Off: " + leave.getTimeOffType().getName())
+                            .reviewedBy(leave.getApprover())
+                            .build());
+                    continue;
+                }
 
                 // Per-employee per-day variation using employee code hash + day
                 int roll = Math.abs((emp.getEmployeeCode() + date).hashCode()) % 100;
@@ -597,7 +649,6 @@ public class EnterpriseDataSeeder {
                 else if (roll < 98)  status = AttendanceStatus.EXCEPTION;
                 else                 status = AttendanceStatus.ABSENT;
 
-                // Anchor timestamps to the actual attendance date, not Instant.now()
                 LocalDateTime checkInDt  = date.atTime(status == AttendanceStatus.LATE ? 10 : 9, rng.nextInt(30));
                 LocalDateTime checkOutDt = date.atTime(17 + rng.nextInt(2), 30 + rng.nextInt(30));
 
@@ -625,6 +676,7 @@ public class EnterpriseDataSeeder {
                             .status(status)
                             .manualOverride(status == AttendanceStatus.EXCEPTION)
                             .overrideReason(status == AttendanceStatus.EXCEPTION ? "Biometric reader error on floor 3" : null)
+                            .reviewedBy(status == AttendanceStatus.EXCEPTION ? (emp.getManager() != null ? emp.getManager() : emp) : null)
                             .build());
                 }
             }
@@ -661,6 +713,7 @@ public class EnterpriseDataSeeder {
                     .periodStart(periodStart)
                     .periodEnd(periodEnd)
                     .status(PayrunStatus.PAID)
+                    .validatedAt(Instant.now().minusSeconds(86400L * (monthsBack * 30 - 12)))
                     .paidAt(Instant.now().minusSeconds(86400L * (monthsBack * 30 - 15))) // roughly mid of following month
                     .build();
             payrun = payrunRepository.save(payrun);
@@ -670,20 +723,59 @@ public class EnterpriseDataSeeder {
                        runDeductions = BigDecimal.ZERO, runNet = BigDecimal.ZERO;
 
             for (Contract c : activeContracts) {
-                // Only include contracts active during this specific period
-                if (!c.isActiveOn(periodStart) && !c.isActiveOn(periodEnd)) continue;
+                // If contract hasn't started yet during this month or already ended, skip
+                if (c.getStartDate().isAfter(periodEnd)) continue;
+                if (c.getEndDate() != null && c.getEndDate().isBefore(periodStart)) continue;
 
                 boolean isExec = c.getSalaryStructure().getCode().equals("EXEC-COMP");
-                BigDecimal basic     = c.getWage();
+                BigDecimal fullWage = c.getWage();
+
+                // Dynamic weekday count for the month
+                int totalWeekdays = 0;
+                LocalDate d = periodStart;
+                while (!d.isAfter(periodEnd)) {
+                    if (d.getDayOfWeek().getValue() <= 5) totalWeekdays++;
+                    d = d.plusDays(1);
+                }
+
+                // Dynamic interlinked attendance query for this employee & period
+                int workedDays = attendanceRepository.countWorkedDaysInPeriod(c.getEmployee().getId(), periodStart, periodEnd);
+                if (workedDays == 0) workedDays = totalWeekdays;
+
+                BigDecimal basic = fullWage.multiply(BD(workedDays)).divide(BD(totalWeekdays), 2, RoundingMode.HALF_UP);
+
+                // Authentic monthly variance: quarter-end performance appraisals & delivery incentives
+                int varianceRoll = Math.abs((c.getEmployee().getEmployeeCode() + periodStart).hashCode()) % 100;
+                BigDecimal specialBonus = BigDecimal.ZERO;
+                if (monthsBack == 6) { // March: Fiscal Year-End Q4 performance appraisals & closing incentives
+                    if (varianceRoll < 35) {
+                        specialBonus = basic.multiply(BD(18)).divide(BD(100), 2, RoundingMode.HALF_UP);
+                    } else if (varianceRoll < 55) {
+                        specialBonus = BD(4500);
+                    }
+                } else if (monthsBack == 3) { // June: Mid-year product sprint release milestones
+                    if (varianceRoll < 26) {
+                        specialBonus = basic.multiply(BD(12)).divide(BD(100), 2, RoundingMode.HALF_UP);
+                    } else if (varianceRoll < 40) {
+                        specialBonus = BD(3000);
+                    }
+                } else if (monthsBack == 1) { // August: Pre-festival delivery milestone bonuses
+                    if (varianceRoll < 28) {
+                        specialBonus = basic.multiply(BD(14)).divide(BD(100), 2, RoundingMode.HALF_UP);
+                    } else if (varianceRoll < 45) {
+                        specialBonus = BD(5000);
+                    }
+                }
+
                 BigDecimal hra       = basic.multiply(BD(40)).divide(BD(100), 2, RoundingMode.HALF_UP);
                 BigDecimal transport = isExec ? BD(5000) : BD(3000);
                 BigDecimal special   = isExec ? basic.multiply(BD(15)).divide(BD(100), 2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
-                BigDecimal gross     = basic.add(hra).add(transport).add(special);
+                BigDecimal gross     = basic.add(hra).add(transport).add(special).add(specialBonus);
                 BigDecimal pf        = basic.multiply(BD(12)).divide(BD(100), 2, RoundingMode.HALF_UP);
                 BigDecimal taxRate   = isExec ? BD(20) : BD(10);
                 BigDecimal tax       = gross.multiply(taxRate).divide(BD(100), 2, RoundingMode.HALF_UP);
                 BigDecimal net       = gross.subtract(pf).subtract(tax);
-                BigDecimal allowances = hra.add(transport).add(special);
+                BigDecimal allowances = hra.add(transport).add(special).add(specialBonus);
 
                 runBasic      = runBasic.add(basic);
                 runAllowances = runAllowances.add(allowances);
@@ -699,7 +791,7 @@ public class EnterpriseDataSeeder {
                         .salaryStructure(structure)
                         .periodStart(periodStart)
                         .periodEnd(periodEnd)
-                        .workedDays(22)
+                        .workedDays(workedDays)
                         .basicWage(basic)
                         .totalAllowances(allowances)
                         .grossSalary(gross)
@@ -732,6 +824,11 @@ public class EnterpriseDataSeeder {
                 if (isExec && special != null) {
                     lines.add(payslipLine(ps, "SPECIAL", "Special Allowance",   SalaryRuleCategory.ALLOWANCE, 35, BD(15), special));
                 }
+                BigDecimal regularAllowances = hra.add(transport).add(special != null ? special : BigDecimal.ZERO);
+                BigDecimal bonus = ps.getTotalAllowances().subtract(regularAllowances);
+                if (bonus.compareTo(BigDecimal.ZERO) > 0) {
+                    lines.add(payslipLine(ps, "BONUS", "Performance / Milestone Bonus", SalaryRuleCategory.ALLOWANCE, 38, null, bonus));
+                }
                 lines.add(payslipLine(ps, "GROSS",     "Gross Salary",          SalaryRuleCategory.GROSS,     40, null,   ps.getGrossSalary()));
                 lines.add(payslipLine(ps, "PF",        "Provident Fund",        SalaryRuleCategory.DEDUCTION, 50, BD(12), pf));
                 lines.add(payslipLine(ps, "TAX",       "Income Tax",            SalaryRuleCategory.DEDUCTION, 60, isExec ? BD(20) : BD(10), tax));
@@ -748,16 +845,132 @@ public class EnterpriseDataSeeder {
             payrunRepository.save(payrun);
         }
 
-        // Active month: DRAFT payrun (no payslips yet, awaiting computation)
+        // Active month: 3 structured batches across VALIDATED, COMPUTED, and DRAFT
         LocalDate currStart = LocalDate.now().with(TemporalAdjusters.firstDayOfMonth());
         LocalDate currEnd   = LocalDate.now().with(TemporalAdjusters.lastDayOfMonth());
-        payrunRepository.save(Payrun.builder()
-                .name("Payrun " + currStart.getMonth().name() + " " + currStart.getYear())
+
+        Payrun valPayrun = payrunRepository.save(Payrun.builder()
+                .name("Payrun " + currStart.getMonth().name() + " " + currStart.getYear() + " - Executive & Operations (Validated)")
+                .salaryStructure(std)
+                .periodStart(currStart)
+                .periodEnd(currEnd)
+                .status(PayrunStatus.VALIDATED)
+                .validatedAt(Instant.now().minusSeconds(7200))
+                .build());
+
+        Payrun compPayrun = payrunRepository.save(Payrun.builder()
+                .name("Payrun " + currStart.getMonth().name() + " " + currStart.getYear() + " - Tech & Engineering (Computed)")
+                .salaryStructure(std)
+                .periodStart(currStart)
+                .periodEnd(currEnd)
+                .status(PayrunStatus.COMPUTED)
+                .build());
+
+        Payrun draftPayrun = payrunRepository.save(Payrun.builder()
+                .name("Payrun " + currStart.getMonth().name() + " " + currStart.getYear() + " - Sales & Operations (Draft)")
                 .salaryStructure(std)
                 .periodStart(currStart)
                 .periodEnd(currEnd)
                 .status(PayrunStatus.DRAFT)
                 .build());
+
+        int count = 0;
+        List<Payslip> activePayslips = new ArrayList<>();
+        BigDecimal valBasic = BigDecimal.ZERO, valAllowances = BigDecimal.ZERO, valDeductions = BigDecimal.ZERO, valNet = BigDecimal.ZERO;
+        BigDecimal compBasic = BigDecimal.ZERO, compAllowances = BigDecimal.ZERO, compDeductions = BigDecimal.ZERO, compNet = BigDecimal.ZERO;
+        BigDecimal draftBasic = BigDecimal.ZERO, draftAllowances = BigDecimal.ZERO, draftDeductions = BigDecimal.ZERO, draftNet = BigDecimal.ZERO;
+        int valCount = 0, compCount = 0, draftCount = 0;
+
+        for (Contract c : activeContracts) {
+            count++;
+            Payrun targetPr = (count <= 35) ? valPayrun : (count <= 155 ? compPayrun : draftPayrun);
+            PayslipStatus targetStatus = (count <= 35) ? PayslipStatus.VALIDATED : (count <= 155 ? PayslipStatus.COMPUTED : PayslipStatus.DRAFT);
+            boolean isExec = c.getSalaryStructure().getCode().equals("EXEC-COMP");
+            int workedDays = attendanceRepository.countWorkedDaysInPeriod(c.getEmployee().getId(), currStart, currEnd);
+            if (workedDays == 0) workedDays = 4;
+            BigDecimal fullWage = c.getWage();
+            BigDecimal basic = fullWage.multiply(BD(workedDays)).divide(BD(22), 2, RoundingMode.HALF_UP);
+            BigDecimal hra = basic.multiply(BD(40)).divide(BD(100), 2, RoundingMode.HALF_UP);
+            BigDecimal transport = isExec ? BD(5000) : BD(3000);
+            BigDecimal special = isExec ? basic.multiply(BD(15)).divide(BD(100), 2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal allowances = hra.add(transport).add(special);
+            BigDecimal gross = basic.add(allowances);
+            BigDecimal pf = basic.multiply(BD(12)).divide(BD(100), 2, RoundingMode.HALF_UP);
+            BigDecimal tax = gross.multiply(isExec ? BD(20) : BD(10)).divide(BD(100), 2, RoundingMode.HALF_UP);
+            BigDecimal deductions = pf.add(tax);
+            BigDecimal net = gross.subtract(deductions);
+
+            if (count <= 35) {
+                valBasic = valBasic.add(basic); valAllowances = valAllowances.add(allowances);
+                valDeductions = valDeductions.add(deductions); valNet = valNet.add(net); valCount++;
+            } else if (count <= 155) {
+                compBasic = compBasic.add(basic); compAllowances = compAllowances.add(allowances);
+                compDeductions = compDeductions.add(deductions); compNet = compNet.add(net); compCount++;
+            } else {
+                draftBasic = draftBasic.add(basic); draftAllowances = draftAllowances.add(allowances);
+                draftDeductions = draftDeductions.add(deductions); draftNet = draftNet.add(net); draftCount++;
+            }
+
+            activePayslips.add(Payslip.builder()
+                    .payrun(targetPr)
+                    .employee(c.getEmployee())
+                    .contract(c)
+                    .salaryStructure(c.getSalaryStructure())
+                    .periodStart(currStart)
+                    .periodEnd(currEnd)
+                    .workedDays(workedDays)
+                    .basicWage(basic)
+                    .totalAllowances(allowances)
+                    .grossSalary(gross)
+                    .totalDeductions(deductions)
+                    .netSalary(net)
+                    .status(targetStatus)
+                    .build());
+        }
+        List<Payslip> savedActive = payslipRepository.saveAll(activePayslips);
+
+        // Active payslip lines
+        List<PayslipLine> activeLines = new ArrayList<>(savedActive.size() * 7);
+        for (Payslip ps : savedActive) {
+            boolean isExec = ps.getSalaryStructure().getCode().equals("EXEC-COMP");
+            BigDecimal basic     = ps.getBasicWage();
+            BigDecimal hra       = basic.multiply(BD(40)).divide(BD(100), 2, RoundingMode.HALF_UP);
+            BigDecimal transport = isExec ? BD(5000) : BD(3000);
+            BigDecimal special   = isExec ? basic.multiply(BD(15)).divide(BD(100), 2, RoundingMode.HALF_UP) : null;
+            BigDecimal pf        = basic.multiply(BD(12)).divide(BD(100), 2, RoundingMode.HALF_UP);
+            BigDecimal tax       = ps.getGrossSalary().multiply(isExec ? BD(20) : BD(10)).divide(BD(100), 2, RoundingMode.HALF_UP);
+
+            activeLines.add(payslipLine(ps, "BASIC",     "Basic Wage",            SalaryRuleCategory.BASIC,     10, null,    basic));
+            activeLines.add(payslipLine(ps, "HRA",       "House Rent Allowance",  SalaryRuleCategory.ALLOWANCE, 20, BD(40), hra));
+            activeLines.add(payslipLine(ps, "TRANSPORT", "Transport Allowance",   SalaryRuleCategory.ALLOWANCE, 30, null,   transport));
+            if (isExec && special != null) {
+                activeLines.add(payslipLine(ps, "SPECIAL", "Special Allowance",   SalaryRuleCategory.ALLOWANCE, 35, BD(15), special));
+            }
+            activeLines.add(payslipLine(ps, "GROSS",     "Gross Salary",          SalaryRuleCategory.GROSS,     40, null,   ps.getGrossSalary()));
+            activeLines.add(payslipLine(ps, "PF",        "Provident Fund",        SalaryRuleCategory.DEDUCTION, 50, BD(12), pf));
+            activeLines.add(payslipLine(ps, "TAX",       "Income Tax",            SalaryRuleCategory.DEDUCTION, 60, isExec ? BD(20) : BD(10), tax));
+            activeLines.add(payslipLine(ps, "NET",       "Net Salary",            SalaryRuleCategory.NET,       70, null,   ps.getNetSalary()));
+        }
+        payslipLineRepository.saveAll(activeLines);
+
+        valPayrun.setTotalBasic(valBasic); valPayrun.setTotalAllowances(valAllowances);
+        valPayrun.setTotalDeductions(valDeductions); valPayrun.setTotalNet(valNet); valPayrun.setPayslipsCount(valCount);
+        payrunRepository.save(valPayrun);
+
+        compPayrun.setTotalBasic(compBasic); compPayrun.setTotalAllowances(compAllowances);
+        compPayrun.setTotalDeductions(compDeductions); compPayrun.setTotalNet(compNet); compPayrun.setPayslipsCount(compCount);
+        payrunRepository.save(compPayrun);
+
+        draftPayrun.setTotalBasic(draftBasic); draftPayrun.setTotalAllowances(draftAllowances);
+        draftPayrun.setTotalDeductions(draftDeductions); draftPayrun.setTotalNet(draftNet); draftPayrun.setPayslipsCount(draftCount);
+        payrunRepository.save(draftPayrun);
+
+        try {
+            dashboardQueryRepository.refreshMonthlySummaryView();
+            dashboardQueryRepository.refreshDepartmentCostView();
+        } catch (Exception e) {
+            log.warn("Could not refresh materialized views immediately: {}", e.getMessage());
+        }
     }
 
     private PayslipLine payslipLine(Payslip ps, String code, String name, SalaryRuleCategory cat,

@@ -101,6 +101,10 @@ public class TimeOffAllocationController {
         TimeOffAllocation allocation = allocationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TimeOffAllocation", "id", id));
 
+        if (allocation.getStatus() == TimeOffStatus.REFUSED) {
+            throw new BusinessRuleViolationException("Refused allocations cannot be approved directly");
+        }
+
         Employee approver = employeeRepository.findById(currentUser.getId()).orElse(null);
 
         allocation.setStatus(TimeOffStatus.APPROVED);
@@ -109,5 +113,29 @@ public class TimeOffAllocationController {
 
         TimeOffAllocation saved = allocationRepository.save(allocation);
         return ResponseEntity.ok(ApiResponse.ok("Allocation approved and balance updated", AllocationResponse.from(saved)));
+    }
+
+    @PutMapping("/{id}/refuse")
+    @Transactional
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<AllocationResponse>> refuseAllocation(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal SecurityUser currentUser
+    ) {
+        TimeOffAllocation allocation = allocationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("TimeOffAllocation", "id", id));
+
+        if (allocation.getStatus() == TimeOffStatus.APPROVED) {
+            throw new BusinessRuleViolationException("Approved allocations cannot be refused directly without formal adjustment");
+        }
+
+        Employee approver = employeeRepository.findById(currentUser.getId()).orElse(null);
+
+        allocation.setStatus(TimeOffStatus.REFUSED);
+        allocation.setApprover(approver);
+        allocation.setApprovalDate(Instant.now());
+
+        TimeOffAllocation saved = allocationRepository.save(allocation);
+        return ResponseEntity.ok(ApiResponse.ok("Allocation refused", AllocationResponse.from(saved)));
     }
 }

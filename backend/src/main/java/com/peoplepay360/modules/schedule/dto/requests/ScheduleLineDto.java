@@ -28,5 +28,7 @@ public class ScheduleLineDto {
     private LocalTime endTime;
 
     @Builder.Default
+    @jakarta.validation.constraints.DecimalMin(value = "0.0", message = "Break hours cannot be negative")
+    @jakarta.validation.constraints.DecimalMax(value = "24.0", message = "Break hours cannot exceed 24 hours")
     private BigDecimal breakHours = BigDecimal.ZERO;
 }

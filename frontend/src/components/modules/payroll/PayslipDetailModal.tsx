@@ -50,7 +50,7 @@ export function PayslipDetailModal({ payslip, onClose }: PayslipDetailModalProps
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => window.open(payrollService.getPdfUrl(payslip.id), '_blank')}
+              onClick={() => payrollService.viewPdf(payslip.id)}
               className="apple-press inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-teal-600 dark:bg-teal-500 text-white hover:bg-teal-700 transition-colors shadow-2xs cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" strokeWidth={1.5} />

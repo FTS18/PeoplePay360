@@ -19,11 +19,27 @@ interface RecentPayrunTableProps {
   payruns: PayrunSummary[];
 }
 
+function formatPeriodDisplay(period: string) {
+  if (!period) return "—";
+  const parts = period.split(" – ");
+  if (parts.length === 2) {
+    const d1 = parts[0].split("-");
+    const d2 = parts[1].split("-");
+    if (d1.length === 3 && d2.length === 3) {
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const mIdx = parseInt(d1[1], 10) - 1;
+      const month = monthNames[mIdx] || d1[1];
+      return `${month} ${d1[2]} – ${d2[2]}, ${d1[0]}`;
+    }
+  }
+  return period;
+}
+
 export function RecentPayrunTable({ payruns }: RecentPayrunTableProps) {
   const columns: Column<PayrunSummary>[] = [
     {
       header: "Reference",
-      width: "32%",
+      width: "30%",
       render: (pr) => (
         <Link
           href={ROUTES.PAYROLL.PAYRUN_DETAIL(pr.id)}
@@ -35,10 +51,10 @@ export function RecentPayrunTable({ payruns }: RecentPayrunTableProps) {
     },
     {
       header: "Period",
-      width: "26%",
+      width: "28%",
       render: (pr) => (
-        <span className="text-[var(--muted-foreground)] tabular-nums truncate block text-xs">
-          {pr.period}
+        <span className="text-[var(--muted-foreground)] tabular-nums whitespace-nowrap block text-xs">
+          {formatPeriodDisplay(pr.period)}
         </span>
       ),
     },

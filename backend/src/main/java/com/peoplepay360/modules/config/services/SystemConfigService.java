@@ -72,7 +72,8 @@ public class SystemConfigService {
             if (existing.isPresent()) {
                 SystemConfig cfg = existing.get();
                 if (cfg.isEditable()) {
-                    cfg.setConfigValue(value);
+                    validateConfigValue(cfg.getConfigKey(), cfg.getDataType(), value);
+                    cfg.setConfigValue(value.trim());
                     cfg.setUpdatedBy(updatedBy);
                     repository.save(cfg);
                 }
@@ -83,9 +84,10 @@ public class SystemConfigService {
                     category = key.split("\\.")[0].toUpperCase();
                 }
 
+                validateConfigValue(key, "STRING", value);
                 SystemConfig newCfg = SystemConfig.builder()
                         .configKey(key)
-                        .configValue(value)
+                        .configValue(value.trim())
                         .category(category)
                         .dataType("STRING")
                         .isEditable(true)
@@ -97,6 +99,36 @@ public class SystemConfigService {
         return repository.findAllByOrderByCategoryAscConfigKeyAsc();
     }
 
+    private void validateConfigValue(String key, String dataType, String value) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("Configuration value for '" + key + "' cannot be blank.");
+        }
+        String trimmed = value.trim();
+        if ("NUMBER".equalsIgnoreCase(dataType)) {
+            double numVal;
+            try {
+                numVal = Double.parseDouble(trimmed);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Parameter '" + key + "' requires a valid number (provided: '" + value + "').");
+            }
+            if (numVal < 0) {
+                throw new IllegalArgumentException("Parameter '" + key + "' cannot be negative (provided: " + value + ").");
+            }
+            if (key.toLowerCase().contains("percentage") || key.toLowerCase().contains("rate_per_hour")) {
+                if (numVal > 100.0) {
+                    throw new IllegalArgumentException("Percentage parameter '" + key + "' cannot exceed 100% (provided: " + value + ").");
+                }
+            }
+            if (key.toLowerCase().contains("multiplier") && numVal > 10.0) {
+                throw new IllegalArgumentException("Multiplier parameter '" + key + "' cannot exceed 10.0 (provided: " + value + ").");
+            }
+        } else if ("BOOLEAN".equalsIgnoreCase(dataType)) {
+            if (!"true".equalsIgnoreCase(trimmed) && !"false".equalsIgnoreCase(trimmed)) {
+                throw new IllegalArgumentException("Parameter '" + key + "' must be true or false.");
+            }
+        }
+    }
+
     @Transactional
     public SystemConfig updateSingleConfig(String key, String value, String updatedBy) {
         SystemConfig cfg = repository.findByConfigKey(key)
@@ -106,7 +138,8 @@ public class SystemConfigService {
             throw new IllegalArgumentException("System configuration key '" + key + "' is protected and read-only");
         }
 
-        cfg.setConfigValue(value);
+        validateConfigValue(cfg.getConfigKey(), cfg.getDataType(), value);
+        cfg.setConfigValue(value.trim());
         cfg.setUpdatedBy(updatedBy);
         return repository.save(cfg);
     }

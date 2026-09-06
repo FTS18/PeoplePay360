@@ -109,6 +109,7 @@ export default function LoginPage() {
     if (role === "ADMIN") demoPass = "Admin@123";
     if (role === "HR_MANAGER") demoPass = "HrManager@123";
     if (role === "HR_PAYROLL_MANAGER") demoPass = "PayrollManager@123";
+    if (role === "HR_PAYROLL_USER") demoPass = "PayrollUser@123";
     
     setPassword(demoPass);
     performLogin(roleEmail, demoPass);
@@ -214,19 +215,25 @@ export default function LoginPage() {
           </div>
 
           {/* Role Tabs */}
-          <div className="flex bg-stone-200/50 dark:bg-stone-900/50 p-1 rounded-xl mb-3">
-            {(["ADMIN", "HR_PAYROLL_MANAGER", "HR_MANAGER", "EMPLOYEE"] as Role[]).map((role) => (
+          <div className="flex bg-stone-200/50 dark:bg-stone-900/50 p-1 rounded-xl mb-3 gap-0.5">
+            {[
+              { role: "ADMIN", label: "ADMIN" },
+              { role: "HR_PAYROLL_MANAGER", label: "PAYROLL MGR" },
+              { role: "HR_PAYROLL_USER", label: "PAYROLL USER" },
+              { role: "HR_MANAGER", label: "HR" },
+              { role: "EMPLOYEE", label: "EMPLOYEE" },
+            ].map(({ role, label }) => (
               <button
                 key={role}
                 type="button"
-                onClick={() => setSelectedRole(role)}
-                className={`flex-1 py-1.5 text-[10px] font-bold tracking-wider rounded-lg transition-all ${
+                onClick={() => setSelectedRole(role as Role)}
+                className={`flex-1 py-1.5 text-[9px] font-bold tracking-wider rounded-lg transition-all truncate px-1 ${
                   selectedRole === role
                     ? "bg-white dark:bg-stone-800 text-teal-600 dark:text-teal-400 shadow-sm"
                     : "text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
                 }`}
               >
-                {role.replace("HR_PAYROLL_MANAGER", "PAYROLL").replace("HR_MANAGER", "HR")}
+                {label}
               </button>
             ))}
           </div>

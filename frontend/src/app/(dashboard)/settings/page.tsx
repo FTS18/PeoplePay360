@@ -12,7 +12,6 @@ import {
   AlertCircle,
   RefreshCw,
   Sliders,
-  DollarSign,
   Briefcase,
   Lock,
 } from "lucide-react";

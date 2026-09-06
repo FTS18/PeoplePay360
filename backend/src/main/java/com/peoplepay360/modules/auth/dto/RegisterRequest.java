@@ -51,5 +51,6 @@ public class RegisterRequest {
 
     private String identificationNumber;
 
+    @jakarta.validation.constraints.DecimalMin(value = "0.01", message = "Monthly wage must be greater than zero")
     private BigDecimal monthlyWage;
 }

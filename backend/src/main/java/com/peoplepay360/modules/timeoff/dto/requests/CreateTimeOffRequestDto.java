@@ -33,7 +33,9 @@ public class CreateTimeOffRequestDto {
 
     @NotNull(message = "Requested units is required")
     @DecimalMin(value = "0.5", message = "Minimum requested units is 0.5")
+    @jakarta.validation.constraints.DecimalMax(value = "365.0", message = "Maximum requested units cannot exceed 365 days")
     private BigDecimal requestedUnits;
 
+    @jakarta.validation.constraints.Size(max = 500, message = "Reason cannot exceed 500 characters")
     private String reason;
 }

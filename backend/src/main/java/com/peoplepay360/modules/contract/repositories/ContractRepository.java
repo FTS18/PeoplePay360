@@ -69,5 +69,10 @@ public interface ContractRepository extends JpaRepository<Contract, UUID> {
             @Param("newEnd") LocalDate newEnd
     );
 
+    boolean existsByReference(String reference);
+
+    @Query("SELECT COUNT(c) > 0 FROM Contract c WHERE c.workingSchedule.id = :workingScheduleId")
+    boolean existsByWorkingScheduleId(@Param("workingScheduleId") UUID workingScheduleId);
+
     long countByStatus(ContractStatus status);
 }

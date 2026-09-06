@@ -19,6 +19,7 @@ import java.util.UUID;
 public class CreatePayrunRequest {
 
     @NotBlank(message = "Payrun name is required")
+    @jakarta.validation.constraints.Size(min = 3, max = 100, message = "Payrun name must be between 3 and 100 characters")
     private String name;
 
     @NotNull(message = "Salary structure ID is required")

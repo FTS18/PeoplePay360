@@ -15,6 +15,7 @@ import com.peoplepay360.modules.dashboard.repositories.DashboardQueryRepository.
 import com.peoplepay360.modules.dashboard.repositories.DashboardQueryRepository.MonthlyPayrollTrendProjection;
 import com.peoplepay360.modules.dashboard.repositories.DashboardQueryRepository.PayrollAggregateProjection;
 import com.peoplepay360.modules.employee.repositories.EmployeeRepository;
+import com.peoplepay360.modules.payroll.repositories.PayrunRepository;
 import com.peoplepay360.modules.payroll.repositories.PayslipRepository;
 import com.peoplepay360.modules.timeoff.repositories.TimeOffRequestRepository;
 
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -53,6 +55,7 @@ public class DashboardController {
     private final TimeOffRequestRepository timeOffRequestRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final PayslipRepository payslipRepository;
+    private final PayrunRepository payrunRepository;
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
     public static class DepartmentCostDto implements Serializable {
@@ -159,6 +162,22 @@ public class DashboardController {
                     .link("/payroll/payruns")
                     .build());
         }
+        List<MonthlyPayrollTrendProjection> trends = dashboardQueryRepository.findMonthlyPayrollTrends(EPOCH_START, department, role);
+        Double momGrowth = null;
+        if (trends != null && trends.size() >= 2) {
+            BigDecimal latestMonthNet = trends.get(trends.size() - 1).getTotalNet();
+            BigDecimal prevMonthNet = trends.get(trends.size() - 2).getTotalNet();
+            if (prevMonthNet != null && prevMonthNet.compareTo(BigDecimal.ZERO) > 0 && latestMonthNet != null) {
+                momGrowth = latestMonthNet.subtract(prevMonthNet)
+                        .divide(prevMonthNet, 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100))
+                        .doubleValue();
+            }
+        }
+
+        long totalDepts = employeeRepository.findDistinctDepartments().size();
+        long totalPayruns = payrunRepository.count();
+        long totalLeaveRequests = timeOffRequestRepository.count();
 
         DashboardSummaryResponse response = DashboardSummaryResponse.builder()
                 .totalNetSalaryPaid(totalPaid)
@@ -180,6 +199,11 @@ public class DashboardController {
                 .computedPayslipsCount(computedPs)
                 .validatedPayslipsCount(validatedPs)
                 .paidPayslipsCount(paidPs)
+                .monthOverMonthGrowth(momGrowth)
+                .totalDepartmentsCount(totalDepts)
+                .totalPayrunsCount(totalPayruns)
+                .totalAttendanceRecordsCount(totalAttendanceRecords)
+                .totalLeaveRequestsCount(totalLeaveRequests)
                 .payrollWarningsCount(warnings.size())
                 .payrollWarnings(warnings)
                 .build();

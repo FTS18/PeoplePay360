@@ -37,6 +37,12 @@ public class DashboardSummaryResponse {
     private long validatedPayslipsCount;
     private long paidPayslipsCount;
 
+    private Double monthOverMonthGrowth;
+    private long totalDepartmentsCount;
+    private long totalPayrunsCount;
+    private long totalAttendanceRecordsCount;
+    private long totalLeaveRequestsCount;
+
     private long payrollWarningsCount;
     private java.util.List<PayrollWarningDto> payrollWarnings;
 

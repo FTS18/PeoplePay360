@@ -2,6 +2,7 @@ package com.peoplepay360.modules.payroll.controllers;
 
 import com.peoplepay360.common.ApiResponse;
 import com.peoplepay360.common.PageResponse;
+import com.peoplepay360.exception.BusinessRuleViolationException;
 import com.peoplepay360.exception.ResourceNotFoundException;
 import com.peoplepay360.modules.payroll.dto.requests.ComputeBatchRequest;
 import com.peoplepay360.modules.payroll.dto.requests.CreatePayrunRequest;
@@ -24,6 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -193,9 +195,13 @@ public class PayrunController {
         Payrun payrun = payrunRepository.findWithPayslipsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payrun", "id", id));
 
+        if (payrun.getPayslips() == null || payrun.getPayslips().isEmpty()) {
+            throw new BusinessRuleViolationException("Cannot dispatch emails for a payrun with no computed payslips. Please compute the batch first.");
+        }
+
         if (async) {
             emailDispatchService.dispatchBulkPayrunEmailsAsync(payrun);
-            int total = payrun.getPayslips() != null ? payrun.getPayslips().size() : 0;
+            int total = payrun.getPayslips().size();
             String msg = String.format("Bulk payslip email dispatch queued asynchronously in background worker pool for %d employees", total);
             return ResponseEntity.status(org.springframework.http.HttpStatus.ACCEPTED)
                     .body(ApiResponse.ok(msg, new EmailDispatchService.DispatchResult(0, 0, total)));
@@ -206,5 +212,21 @@ public class PayrunController {
                 result.successCount(), result.failureCount(), result.totalCount());
 
         return ResponseEntity.ok(ApiResponse.ok(msg, result));
+    }
+
+    @DeleteMapping("/payruns/{id}")
+    @PreAuthorize("hasAnyRole('HR_PAYROLL_MANAGER', 'ADMIN')")
+    @Transactional
+    public ResponseEntity<ApiResponse<Void>> deletePayrun(@PathVariable UUID id) {
+        Payrun payrun = payrunRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Payrun", "id", id));
+
+        if (payrun.getStatus() == com.peoplepay360.common.enums.PayrunStatus.PAID) {
+            throw new BusinessRuleViolationException(
+                    "Paid and finalized payruns cannot be deleted (audit immutability requirement)");
+        }
+
+        payrunRepository.delete(payrun);
+        return ResponseEntity.ok(ApiResponse.ok("Payrun deleted successfully", null));
     }
 }

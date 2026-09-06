@@ -20,6 +20,10 @@ public interface PayslipRepository extends JpaRepository<Payslip, UUID> {
 
     List<Payslip> findByPayrunId(UUID payrunId);
 
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM Payslip p WHERE p.payrun.id = :payrunId")
+    void deleteByPayrunId(@Param("payrunId") UUID payrunId);
+
     @EntityGraph(attributePaths = {"employee", "payrun"})
     Page<Payslip> findByPayrunId(UUID payrunId, Pageable pageable);
 

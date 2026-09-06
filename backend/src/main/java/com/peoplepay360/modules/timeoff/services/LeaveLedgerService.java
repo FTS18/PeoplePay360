@@ -92,6 +92,14 @@ public class LeaveLedgerService {
         TimeOffType type = typeRepository.findById(request.getTimeOffType().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("TimeOffType", "id", request.getTimeOffType().getId()));
 
+        long calendarDays = java.time.temporal.ChronoUnit.DAYS.between(request.getStartDate(), request.getEndDate()) + 1;
+        if (type.getUnit() == com.peoplepay360.common.enums.TimeOffUnit.DAYS
+                && request.getRequestedUnits().compareTo(BigDecimal.valueOf(calendarDays)) > 0) {
+            throw new BusinessRuleViolationException(String.format(
+                    "Requested leave units (%.1f days) cannot exceed total calendar days in selected period (%d days)",
+                    request.getRequestedUnits(), calendarDays));
+        }
+
         if (type.isRequiresAllocation()) {
             BigDecimal available = getAvailableBalance(request.getEmployee().getId(), type.getId(), request.getStartDate());
             if (available.compareTo(request.getRequestedUnits()) < 0) {

@@ -62,6 +62,9 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
            "AND (e.bankAccountNumber IS NULL OR TRIM(e.bankAccountNumber) = '')")
     long countActiveWithMissingBank();
 
+    @Query("SELECT COUNT(e) > 0 FROM Employee e WHERE e.workingSchedule.id = :workingScheduleId")
+    boolean existsByWorkingScheduleId(@Param("workingScheduleId") UUID workingScheduleId);
+
     // Single query replacing two separate existsByEmail / existsByCode calls at create time.
     @Query("SELECT e.email, e.employeeCode FROM Employee e " +
            "WHERE e.email = :email OR e.employeeCode = :code")

@@ -2,6 +2,7 @@ package com.peoplepay360.modules.attendance.controllers;
 
 import com.peoplepay360.common.ApiResponse;
 import com.peoplepay360.common.PageResponse;
+import com.peoplepay360.exception.BusinessRuleViolationException;
 import com.peoplepay360.modules.attendance.dto.requests.AttendanceOverrideRequest;
 import com.peoplepay360.modules.attendance.dto.requests.AttendancePunchRequest;
 import com.peoplepay360.modules.attendance.dto.responses.AttendanceResponse;
@@ -96,6 +97,10 @@ public class AttendanceController {
             @RequestParam LocalDate endDate,
             @AuthenticationPrincipal SecurityUser currentUser
     ) {
+        if (endDate.isBefore(startDate)) {
+            throw new BusinessRuleViolationException("End date cannot precede start date");
+        }
+
         boolean isEmployee = currentUser.getRole().name().equals("EMPLOYEE");
         if (isEmployee && !currentUser.getId().equals(employeeId)) {
             throw new org.springframework.security.access.AccessDeniedException("Access denied");
@@ -114,6 +119,10 @@ public class AttendanceController {
             @RequestParam LocalDate endDate,
             @PageableDefault(size = 20) Pageable pageable
     ) {
+        if (endDate.isBefore(startDate)) {
+            throw new BusinessRuleViolationException("End date cannot precede start date");
+        }
+
         Page<AttendanceRecord> page = attendanceRepository.findAnomaliesInDateRange(startDate, endDate, pageable);
         return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(page.map(AttendanceResponse::from))));
     }

@@ -47,6 +47,20 @@ export const payrollService = {
 
   getPdfUrl: (id: string) => `/api/v1/payroll/payslips/${id}/pdf`,
 
+  viewPdf: async (id: string) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("peoplepay_token") : null;
+    const res = await fetch(`/api/v1/payroll/payslips/${id}/pdf`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!res.ok) throw new Error(`Failed to load PDF: HTTP ${res.status}`);
+    const blob = await res.blob();
+    const pdfBlob = new Blob([blob], { type: "application/pdf" });
+    const url = URL.createObjectURL(pdfBlob);
+    window.open(url, "_blank");
+  },
+
   sendPayslips: (id: string) =>
     apiClient.post<string>(`/payroll/payruns/${id}/send-payslips`),
 

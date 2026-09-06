@@ -27,6 +27,7 @@ public class CreateAllocationRequest {
 
     @NotNull(message = "Allocated units are required")
     @DecimalMin(value = "0.5", message = "Allocated units must be at least 0.5")
+    @jakarta.validation.constraints.DecimalMax(value = "365.0", message = "Allocated units cannot exceed 365 days")
     private BigDecimal allocatedUnits;
 
     @NotNull(message = "Valid from date is required")

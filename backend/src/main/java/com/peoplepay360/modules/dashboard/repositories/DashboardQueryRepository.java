@@ -1,5 +1,6 @@
 package com.peoplepay360.modules.dashboard.repositories;
 
+import com.peoplepay360.modules.attendance.entities.AttendanceRecord;
 import com.peoplepay360.modules.payroll.entities.Payslip;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -41,7 +42,7 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
            "COALESCE(SUM(p.netSalary), 0) AS totalNet " +
            "FROM Payslip p " +
            "JOIN p.contract c " +
-           "WHERE p.status IN ('DRAFT', 'COMPUTED', 'VALIDATED', 'PAID') " +
+           "WHERE p.status = 'PAID' " +
            "AND p.periodStart >= :sinceDate " +
            "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
            "AND (:role IS NULL OR p.employee.role = :role) " +
@@ -60,7 +61,7 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
            "COALESCE(SUM(p.netSalary), 0) AS totalNet " +
            "FROM Payslip p " +
            "JOIN p.contract c " +
-           "WHERE p.status IN ('DRAFT', 'COMPUTED', 'VALIDATED', 'PAID') " +
+           "WHERE p.status = 'PAID' " +
            "AND p.periodStart >= :sinceDate " +
            "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
            "AND (:role IS NULL OR p.employee.role = :role) " +
@@ -75,7 +76,7 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
     @Query("SELECT COALESCE(SUM(p.netSalary), 0) AS totalNet, COALESCE(AVG(p.netSalary), 0) AS avgNet " +
            "FROM Payslip p " +
            "JOIN p.contract c " +
-           "WHERE p.status IN ('DRAFT', 'COMPUTED', 'VALIDATED', 'PAID') " +
+           "WHERE p.status = 'PAID' " +
            "AND p.periodStart >= :sinceDate " +
            "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
            "AND (:role IS NULL OR p.employee.role = :role)")
@@ -85,12 +86,11 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
             @Param("role") com.peoplepay360.common.enums.Role role
     );
 
-    @Query("SELECT COUNT(p) FROM Payslip p " +
-           "JOIN p.contract c " +
-           "WHERE p.manualOverride = true " +
-           "AND p.periodStart >= :sinceDate " +
-           "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
-           "AND (:role IS NULL OR p.employee.role = :role)")
+    @Query("SELECT COUNT(a) FROM AttendanceRecord a " +
+           "WHERE a.manualOverride = true " +
+           "AND a.date >= :sinceDate " +
+           "AND (:department IS NULL OR a.employee.department = :department) " +
+           "AND (:role IS NULL OR a.employee.role = :role)")
     Long countManualOverrides(
             @Param("sinceDate") LocalDate sinceDate,
             @Param("department") String department,
@@ -99,7 +99,7 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
 
     @Query("SELECT COALESCE(SUM(p.netSalary), 0) FROM Payslip p " +
            "JOIN p.contract c " +
-           "WHERE p.status IN ('DRAFT', 'COMPUTED', 'VALIDATED', 'PAID') " +
+           "WHERE p.status = 'PAID' " +
            "AND p.periodStart >= :sinceDate " +
            "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
            "AND (:role IS NULL OR p.employee.role = :role)")
@@ -111,7 +111,7 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
 
     @Query("SELECT COALESCE(AVG(p.netSalary), 0) FROM Payslip p " +
            "JOIN p.contract c " +
-           "WHERE p.status IN ('DRAFT', 'COMPUTED', 'VALIDATED', 'PAID') " +
+           "WHERE p.status = 'PAID' " +
            "AND p.periodStart >= :sinceDate " +
            "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
            "AND (:role IS NULL OR p.employee.role = :role)")

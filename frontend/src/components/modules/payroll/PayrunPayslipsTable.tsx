@@ -88,16 +88,16 @@ export function PayrunPayslipsTable({ payslips, onSelectPayslip }: PayrunPayslip
       width: "6%",
       align: "center",
       render: (p) => (
-        <a
-          href={payrollService.getPdfUrl(p.id)}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            payrollService.viewPdf(p.id);
+          }}
           className="p-1.5 rounded-lg text-teal-600 dark:text-teal-400 hover:bg-teal-500/10 transition-colors cursor-pointer font-bold text-xs"
           title="Download PDF Payslip"
         >
           PDF
-        </a>
+        </button>
       ),
     },
   ];

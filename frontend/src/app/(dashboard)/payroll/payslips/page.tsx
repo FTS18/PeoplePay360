@@ -197,9 +197,15 @@ function PayslipsContent() {
             className="bg-transparent focus:outline-none cursor-pointer font-semibold"
           >
             <option value="ALL">Period: All Periods</option>
+            <option value="2026-09">Period: Sep 2026</option>
+            <option value="2026-08">Period: Aug 2026</option>
+            <option value="2026-07">Period: Jul 2026</option>
+            <option value="2026-06">Period: Jun 2026</option>
+            <option value="2026-05">Period: May 2026</option>
+            <option value="2026-04">Period: Apr 2026</option>
+            <option value="2026-03">Period: Mar 2026</option>
             <option value="2026-02">Period: Feb 2026</option>
             <option value="2026-01">Period: Jan 2026</option>
-            <option value="2026-03">Period: Mar 2026</option>
           </select>
         </div>
       </div>

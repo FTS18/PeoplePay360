@@ -22,30 +22,40 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         Throwable root = ex.getRootCause();
-        if (root instanceof SQLException sqlEx && "23P01".equals(sqlEx.getSQLState())) {
-            String message = sqlEx.getMessage();
-            if (message != null && message.contains("exclude_contract_overlap")) {
+        if (root instanceof SQLException sqlEx) {
+            if ("23505".equals(sqlEx.getSQLState())) {
                 return buildResponse(
                         HttpStatus.CONFLICT,
-                        "An active contract already exists for this employee within the specified date window.",
+                        "A record with this unique reference, code, or identifier already exists.",
                         request.getRequestURI(),
                         null
                 );
             }
-            if (message != null && message.contains("exclude_approved_leave_overlap")) {
+            if ("23P01".equals(sqlEx.getSQLState())) {
+                String message = sqlEx.getMessage();
+                if (message != null && message.contains("exclude_contract_overlap")) {
+                    return buildResponse(
+                            HttpStatus.CONFLICT,
+                            "An active contract already exists for this employee within the specified date window.",
+                            request.getRequestURI(),
+                            null
+                    );
+                }
+                if (message != null && message.contains("exclude_approved_leave_overlap")) {
+                    return buildResponse(
+                            HttpStatus.CONFLICT,
+                            "The requested time off overlaps with an already approved leave request.",
+                            request.getRequestURI(),
+                            null
+                    );
+                }
                 return buildResponse(
                         HttpStatus.CONFLICT,
-                        "The requested time off overlaps with an already approved leave request.",
+                        "Database exclusion constraint violation: overlapping date range detected.",
                         request.getRequestURI(),
                         null
                 );
             }
-            return buildResponse(
-                    HttpStatus.CONFLICT,
-                    "Database exclusion constraint violation: overlapping date range detected.",
-                    request.getRequestURI(),
-                    null
-            );
         }
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
@@ -105,6 +115,18 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request.getRequestURI(), null);
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleMessageNotReadable(
+            org.springframework.http.converter.HttpMessageNotReadableException ex,
+            HttpServletRequest request
+    ) {
+        String msg = "Malformed request payload or invalid parameter format";
+        if (ex.getMessage() != null && ex.getMessage().contains("not one of the values accepted for Enum class")) {
+            msg = "Invalid enum value provided in request payload";
+        }
+        return buildResponse(HttpStatus.BAD_REQUEST, msg, request.getRequestURI(), null);
     }
 
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)

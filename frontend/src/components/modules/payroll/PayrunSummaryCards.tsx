@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import React from "react";
-import { DollarSign, TrendingDown, Users, Wallet } from "lucide-react";
+import { IndianRupee, TrendingDown, Users, Wallet } from "lucide-react";
 import { Payrun } from "@/types";
 
 interface PayrunSummaryCardsProps {
@@ -21,7 +21,7 @@ export function PayrunSummaryCards({ payrun }: PayrunSummaryCardsProps) {
         <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
           <span>Total Gross Run</span>
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/20">
-            <DollarSign className="w-4 h-4" strokeWidth={1.5} />
+            <IndianRupee className="w-4 h-4" strokeWidth={1.5} />
           </div>
         </div>
         <div className="text-2xl font-bold tracking-tight text-foreground tabular-nums">

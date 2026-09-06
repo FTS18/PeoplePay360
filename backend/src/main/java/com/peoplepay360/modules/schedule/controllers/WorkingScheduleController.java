@@ -31,6 +31,7 @@ import java.util.UUID;
 public class WorkingScheduleController {
 
     private final WorkingScheduleService scheduleService;
+    private final com.peoplepay360.modules.schedule.repositories.WorkingScheduleRepository scheduleRepository;
 
     @GetMapping
     @Transactional(readOnly = true)
@@ -50,8 +51,14 @@ public class WorkingScheduleController {
     @PostMapping
     @PreAuthorize("hasAnyRole('HR_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<ScheduleResponse>> createSchedule(@Valid @RequestBody CreateScheduleRequest request) {
+        String name = request.getName().trim();
+        if (scheduleRepository.existsByName(name)) {
+            throw new com.peoplepay360.exception.BusinessRuleViolationException(
+                    "A working schedule with name '" + name + "' already exists");
+        }
+
         WorkingSchedule schedule = WorkingSchedule.builder()
-                .name(request.getName())
+                .name(name)
                 .type(request.getType())
                 .lines(new ArrayList<>())
                 .build();
@@ -80,7 +87,13 @@ public class WorkingScheduleController {
             @Valid @RequestBody CreateScheduleRequest request
     ) {
         WorkingSchedule existing = scheduleService.getScheduleById(id);
-        existing.setName(request.getName());
+        String name = request.getName().trim();
+        if (!name.equalsIgnoreCase(existing.getName()) && scheduleRepository.existsByName(name)) {
+            throw new com.peoplepay360.exception.BusinessRuleViolationException(
+                    "A working schedule with name '" + name + "' already exists");
+        }
+
+        existing.setName(name);
         existing.setType(request.getType());
         existing.getLines().clear();
 

@@ -2,6 +2,7 @@ package com.peoplepay360.modules.timeoff.controllers;
 
 import com.peoplepay360.common.ApiResponse;
 import com.peoplepay360.common.PageResponse;
+import com.peoplepay360.exception.BusinessRuleViolationException;
 import com.peoplepay360.exception.ResourceNotFoundException;
 import com.peoplepay360.modules.employee.entities.Employee;
 import com.peoplepay360.modules.employee.repositories.EmployeeRepository;
@@ -63,9 +64,32 @@ public class TimeOffController {
     public ResponseEntity<ApiResponse<TimeOffType>> createType(
             @RequestBody TimeOffType type
     ) {
-        if (type.getCode() != null) {
-            type.setCode(type.getCode().toUpperCase());
+        if (type.getName() == null || type.getName().trim().isEmpty()) {
+            throw new BusinessRuleViolationException("Leave type name is required");
         }
+        if (type.getCode() == null || type.getCode().trim().isEmpty()) {
+            throw new BusinessRuleViolationException("Leave type code is required");
+        }
+
+        String code = type.getCode().trim().toUpperCase();
+        String name = type.getName().trim();
+
+        if (name.length() < 2 || name.length() > 50) {
+            throw new BusinessRuleViolationException("Leave type name must be between 2 and 50 characters");
+        }
+        if (code.length() < 2 || code.length() > 20) {
+            throw new BusinessRuleViolationException("Leave type code must be between 2 and 20 characters");
+        }
+
+        if (typeRepository.existsByCode(code)) {
+            throw new BusinessRuleViolationException("A leave type with code '" + code + "' already exists");
+        }
+        if (typeRepository.existsByName(name)) {
+            throw new BusinessRuleViolationException("A leave type with name '" + name + "' already exists");
+        }
+
+        type.setName(name);
+        type.setCode(code);
         if (type.getUnit() == null) {
             type.setUnit(com.peoplepay360.common.enums.TimeOffUnit.DAYS);
         }
@@ -83,8 +107,28 @@ public class TimeOffController {
         TimeOffType existing = typeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TimeOffType", "id", id));
 
-        if (type.getName() != null) existing.setName(type.getName());
-        if (type.getCode() != null) existing.setCode(type.getCode().toUpperCase());
+        if (type.getName() != null) {
+            String name = type.getName().trim();
+            if (name.length() < 2 || name.length() > 50) {
+                throw new BusinessRuleViolationException("Leave type name must be between 2 and 50 characters");
+            }
+            if (!name.equalsIgnoreCase(existing.getName()) && typeRepository.existsByName(name)) {
+                throw new BusinessRuleViolationException("A leave type with name '" + name + "' already exists");
+            }
+            existing.setName(name);
+        }
+
+        if (type.getCode() != null) {
+            String code = type.getCode().trim().toUpperCase();
+            if (code.length() < 2 || code.length() > 20) {
+                throw new BusinessRuleViolationException("Leave type code must be between 2 and 20 characters");
+            }
+            if (!code.equalsIgnoreCase(existing.getCode()) && typeRepository.existsByCode(code)) {
+                throw new BusinessRuleViolationException("A leave type with code '" + code + "' already exists");
+            }
+            existing.setCode(code);
+        }
+
         if (type.getUnit() != null) existing.setUnit(type.getUnit());
         existing.setRequiresAllocation(type.isRequiresAllocation());
         existing.setPaid(type.isPaid());

@@ -40,6 +40,13 @@ public class AttendanceService {
             throw new AccessDeniedException("Cannot punch attendance for another employee");
         }
 
+        boolean isLocked = payrunRepository.existsPaidPayrunForEmployeeOnDate(
+                request.getEmployeeId(), request.getDate());
+        if (isLocked) {
+            throw new BusinessRuleViolationException(
+                    "Cannot record or alter attendance for a date belonging to a finalized and paid payrun period");
+        }
+
         Employee employee = employeeRepository.findById(request.getEmployeeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", request.getEmployeeId()));
 
@@ -89,6 +96,16 @@ public class AttendanceService {
         if (isLocked) {
             throw new BusinessRuleViolationException(
                     "Attendance records belonging to a finalized and paid payrun period cannot be modified retroactively");
+        }
+
+        if (request.getCheckIn() != null && request.getCheckOut() != null && request.getCheckOut().isBefore(request.getCheckIn())) {
+            throw new BusinessRuleViolationException("Check-out timestamp cannot precede check-in timestamp");
+        }
+
+        if (request.getWorkedHours() != null) {
+            if (request.getWorkedHours().compareTo(BigDecimal.ZERO) < 0 || request.getWorkedHours().compareTo(BigDecimal.valueOf(24)) > 0) {
+                throw new BusinessRuleViolationException("Worked hours must be between 0 and 24 hours per day");
+            }
         }
 
         Employee reviewer = employeeRepository.findById(currentUser.getId()).orElse(null);
