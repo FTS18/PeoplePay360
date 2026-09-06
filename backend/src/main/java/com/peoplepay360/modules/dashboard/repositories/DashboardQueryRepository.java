@@ -85,18 +85,6 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
             @Param("role") com.peoplepay360.common.enums.Role role
     );
 
-    @Query("SELECT COUNT(p) FROM Payslip p " +
-           "JOIN p.contract c " +
-           "WHERE p.manualOverride = true " +
-           "AND p.periodStart >= :sinceDate " +
-           "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
-           "AND (:role IS NULL OR p.employee.role = :role)")
-    Long countManualOverrides(
-            @Param("sinceDate") LocalDate sinceDate,
-            @Param("department") String department,
-            @Param("role") com.peoplepay360.common.enums.Role role
-    );
-
     @Query("SELECT COALESCE(SUM(p.netSalary), 0) FROM Payslip p " +
            "JOIN p.contract c " +
            "WHERE p.status IN ('DRAFT', 'COMPUTED', 'VALIDATED', 'PAID') " +

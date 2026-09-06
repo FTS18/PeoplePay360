@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, User, DollarSign, Calendar, FileText, Clock, Info } from "lucide-react";
+import { ArrowLeft, User, Calendar, FileText, Clock, Info } from "lucide-react";
 import { Contract } from "@/types";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { ROUTES } from "@/config/routes";
