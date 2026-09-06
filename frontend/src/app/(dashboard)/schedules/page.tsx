@@ -239,6 +239,17 @@ function SchedulesContent() {
     return schedules.filter((s) => s.name.toLowerCase().includes(q));
   }, [schedules, search]);
 
+  const handleToggleScheduleStatus = async (e: React.MouseEvent, schedId: string) => {
+    e.stopPropagation();
+    try {
+      await apiClient.put(`/schedules/${schedId}/toggle-status`, {});
+      showToast("Schedule status updated");
+      setSchedules((prev) => prev.map((s) => (s.id === schedId ? { ...s, active: s.active === false } : s)));
+    } catch {
+      showToast("Failed to update schedule status");
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Toast notification */}
@@ -350,15 +361,19 @@ function SchedulesContent() {
                           OXP Pvt Ltd
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleScheduleStatus(e, sched.id)}
+                            title="Click to toggle Active / Inactive status"
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider cursor-pointer apple-press transition-all ${
                               sched.active !== false
-                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20"
+                                : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20 hover:bg-red-500/20"
                             }`}
                           >
+                            <span className={`h-1.5 w-1.5 rounded-full ${sched.active !== false ? "bg-emerald-500" : "bg-red-500"}`} />
                             {sched.active !== false ? "Active" : "Inactive"}
-                          </span>
+                          </button>
                         </td>
                       </tr>
                     );

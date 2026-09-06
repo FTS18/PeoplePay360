@@ -65,13 +65,17 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
            "AND p.periodStart >= :sinceDate AND p.periodStart <= :untilDate " +
            "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
            "AND (:role IS NULL OR p.employee.role = :role) " +
+           "AND (:employeeType IS NULL OR :employeeType = '' OR :employeeType = 'ALL' OR " +
+           "    (:employeeType = 'FULL_TIME' AND (c.wage >= 75000 OR p.employee.role != 'EMPLOYEE')) OR " +
+           "    (:employeeType = 'CONTRACT' AND (c.wage < 75000 AND p.employee.role = 'EMPLOYEE')))" +
            "GROUP BY c.department " +
            "ORDER BY totalNet DESC")
     List<DepartmentCostProjection> findDepartmentCostBreakdownBetween(
             @Param("sinceDate") LocalDate sinceDate,
             @Param("untilDate") LocalDate untilDate,
             @Param("department") String department,
-            @Param("role") com.peoplepay360.common.enums.Role role
+            @Param("role") com.peoplepay360.common.enums.Role role,
+            @Param("employeeType") String employeeType
     );
 
     @Query("SELECT " +
@@ -85,12 +89,16 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
            "AND p.periodStart >= :sinceDate " +
            "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
            "AND (:role IS NULL OR p.employee.role = :role) " +
+           "AND (:employeeType IS NULL OR :employeeType = '' OR :employeeType = 'ALL' OR " +
+           "    (:employeeType = 'FULL_TIME' AND (c.wage >= 75000 OR p.employee.role != 'EMPLOYEE')) OR " +
+           "    (:employeeType = 'CONTRACT' AND (c.wage < 75000 AND p.employee.role = 'EMPLOYEE')))" +
            "GROUP BY p.periodStart " +
            "ORDER BY p.periodStart ASC")
     List<MonthlyPayrollTrendProjection> findMonthlyPayrollTrends(
             @Param("sinceDate") LocalDate sinceDate,
             @Param("department") String department,
-            @Param("role") com.peoplepay360.common.enums.Role role
+            @Param("role") com.peoplepay360.common.enums.Role role,
+            @Param("employeeType") String employeeType
     );
 
     @Query("SELECT COALESCE(SUM(p.netSalary), 0) AS totalNet, COALESCE(AVG(p.netSalary), 0) AS avgNet " +
@@ -99,11 +107,15 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
            "WHERE p.status = 'PAID' " +
            "AND p.periodStart >= :sinceDate " +
            "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
-           "AND (:role IS NULL OR p.employee.role = :role)")
+           "AND (:role IS NULL OR p.employee.role = :role) " +
+           "AND (:employeeType IS NULL OR :employeeType = '' OR :employeeType = 'ALL' OR " +
+           "    (:employeeType = 'FULL_TIME' AND (c.wage >= 75000 OR p.employee.role != 'EMPLOYEE')) OR " +
+           "    (:employeeType = 'CONTRACT' AND (c.wage < 75000 AND p.employee.role = 'EMPLOYEE')))")
     PayrollAggregateProjection getPayrollAggregates(
             @Param("sinceDate") LocalDate sinceDate,
             @Param("department") String department,
-            @Param("role") com.peoplepay360.common.enums.Role role
+            @Param("role") com.peoplepay360.common.enums.Role role,
+            @Param("employeeType") String employeeType
     );
 
     @Query("SELECT COALESCE(SUM(p.netSalary), 0) AS totalNet, COALESCE(AVG(p.netSalary), 0) AS avgNet " +
@@ -112,12 +124,16 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
            "WHERE p.status = 'PAID' " +
            "AND p.periodStart >= :sinceDate AND p.periodStart <= :untilDate " +
            "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
-           "AND (:role IS NULL OR p.employee.role = :role)")
+           "AND (:role IS NULL OR p.employee.role = :role) " +
+           "AND (:employeeType IS NULL OR :employeeType = '' OR :employeeType = 'ALL' OR " +
+           "    (:employeeType = 'FULL_TIME' AND (c.wage >= 75000 OR p.employee.role != 'EMPLOYEE')) OR " +
+           "    (:employeeType = 'CONTRACT' AND (c.wage < 75000 AND p.employee.role = 'EMPLOYEE')))")
     PayrollAggregateProjection getPayrollAggregatesBetween(
             @Param("sinceDate") LocalDate sinceDate,
             @Param("untilDate") LocalDate untilDate,
             @Param("department") String department,
-            @Param("role") com.peoplepay360.common.enums.Role role
+            @Param("role") com.peoplepay360.common.enums.Role role,
+            @Param("employeeType") String employeeType
     );
 
     @Query("SELECT COUNT(a) FROM AttendanceRecord a " +

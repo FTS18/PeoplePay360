@@ -102,10 +102,11 @@ export default function DashboardPage() {
       const isEmployee = role === "EMPLOYEE";
       try {
         const deptQuery = selectedDepartment ? `&department=${encodeURIComponent(selectedDepartment)}` : "";
+        const empTypeQuery = selectedEmployeeType && selectedEmployeeType !== "ALL" ? `&employeeType=${encodeURIComponent(selectedEmployeeType)}` : "";
         const periodQuery = `sinceDate=${currentPeriod.sinceDate}&untilDate=${currentPeriod.untilDate}`;
 
         const [summaryRes, payrunsRes, attendanceRes, payslipsRes] = await Promise.all([
-          apiClient.get<any>(`/dashboard/summary?${periodQuery}${deptQuery}`).catch(() => null),
+          apiClient.get<any>(`/dashboard/summary?${periodQuery}${deptQuery}${empTypeQuery}`).catch(() => null),
           !isEmployee ? payrollService.getPayruns(0, 3).catch(() => null) : Promise.resolve(null),
           attendanceService.getAll(0, 5, isEmployee ? user?.id : undefined).catch(() => null),
           isEmployee && user?.id ? payrollService.getPayslips(undefined, 0, 3, user.id).catch(() => null) : Promise.resolve(null),
@@ -199,7 +200,7 @@ export default function DashboardPage() {
       }
     }
     loadDashboard();
-  }, [currentPeriod.sinceDate, currentPeriod.untilDate, selectedDepartment, role, user?.id]);
+  }, [currentPeriod.sinceDate, currentPeriod.untilDate, selectedDepartment, selectedEmployeeType, role, user?.id]);
 
   const isEmployeeRole = role === "EMPLOYEE";
 
@@ -287,13 +288,13 @@ export default function DashboardPage() {
         </div>
 
         {/* 4 Filter Controls: Period, Department, Employee Type, Company */}
-        <div className="flex items-center justify-end gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-xs">
-            <span className="text-muted-foreground font-semibold">Period:</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center lg:justify-end gap-2 w-full lg:w-auto">
+          <div className="flex items-center justify-between sm:justify-start gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-xs w-full sm:w-auto">
+            <span className="text-muted-foreground font-semibold shrink-0">Period:</span>
             <select
               value={selectedPeriodKey}
               onChange={(e) => setSelectedPeriodKey(e.target.value)}
-              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer"
+              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer flex-1 sm:flex-initial text-right sm:text-left"
             >
               {PERIOD_OPTIONS.map((opt) => (
                 <option key={opt.id} value={opt.id} className="bg-card text-foreground">{opt.label}</option>
@@ -301,12 +302,12 @@ export default function DashboardPage() {
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-xs">
-            <span className="text-muted-foreground font-semibold">Department:</span>
+          <div className="flex items-center justify-between sm:justify-start gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-xs w-full sm:w-auto">
+            <span className="text-muted-foreground font-semibold shrink-0">Department:</span>
             <select
               value={selectedDepartment}
               onChange={(e) => setSelectedDepartment(e.target.value)}
-              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer"
+              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer flex-1 sm:flex-initial text-right sm:text-left"
             >
               <option value="" className="bg-card text-foreground">All Departments</option>
               {departments.map((dept) => (
@@ -315,12 +316,12 @@ export default function DashboardPage() {
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-xs">
-            <span className="text-muted-foreground font-semibold">Employee Type:</span>
+          <div className="flex items-center justify-between sm:justify-start gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-xs w-full sm:w-auto">
+            <span className="text-muted-foreground font-semibold shrink-0">Employee Type:</span>
             <select
               value={selectedEmployeeType}
               onChange={(e) => setSelectedEmployeeType(e.target.value)}
-              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer"
+              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer flex-1 sm:flex-initial text-right sm:text-left"
             >
               <option value="ALL" className="bg-card text-foreground">All Types</option>
               <option value="FULL_TIME" className="bg-card text-foreground">Full Time</option>
@@ -328,12 +329,12 @@ export default function DashboardPage() {
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-xs">
-            <span className="text-muted-foreground font-semibold">Company:</span>
+          <div className="flex items-center justify-between sm:justify-start gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-xs w-full sm:w-auto">
+            <span className="text-muted-foreground font-semibold shrink-0">Company:</span>
             <select
               value={selectedCompany}
               onChange={(e) => setSelectedCompany(e.target.value)}
-              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer"
+              className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer flex-1 sm:flex-initial text-right sm:text-left"
             >
               <option value="OXP Pvt Ltd" className="bg-card text-foreground">OXP Pvt Ltd</option>
             </select>

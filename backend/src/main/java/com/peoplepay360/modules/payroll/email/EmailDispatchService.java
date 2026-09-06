@@ -111,6 +111,10 @@ public class EmailDispatchService {
         MimeMessage message = sender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
+        if (sender instanceof org.springframework.mail.javamail.JavaMailSenderImpl mailSenderImpl && mailSenderImpl.getUsername() != null && !mailSenderImpl.getUsername().isEmpty()) {
+            helper.setFrom(mailSenderImpl.getUsername());
+        }
+
         helper.setTo(payslip.getEmployee().getEmail());
         helper.setSubject(String.format("Payslip for Period %s to %s", payslip.getPeriodStart(), payslip.getPeriodEnd()));
         helper.setText(String.format(

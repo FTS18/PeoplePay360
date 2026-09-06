@@ -6,12 +6,14 @@ import { useAuth } from "@/context/AuthContext";
 import { attendanceService } from "@/services/attendanceService";
 
 export function GlobalAttendanceWidget() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [checkInTime, setCheckInTime] = useState<Date | null>(null);
   const [elapsedStr, setElapsedStr] = useState<string>("0h 00m");
   const [loading, setLoading] = useState(false);
+
+  if (role === "ADMIN") return null;
 
   // Live elapsed timer calculation
   useEffect(() => {

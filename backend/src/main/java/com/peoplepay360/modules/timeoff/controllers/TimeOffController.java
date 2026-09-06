@@ -139,6 +139,16 @@ public class TimeOffController {
         return ResponseEntity.ok(ApiResponse.ok("Time off type updated successfully", saved));
     }
 
+    @PutMapping("/types/{id}/toggle-status")
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<TimeOffType>> toggleTypeStatus(@PathVariable UUID id) {
+        TimeOffType existing = typeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("TimeOffType", "id", id));
+        existing.setActive(!existing.isActive());
+        TimeOffType saved = typeRepository.save(existing);
+        return ResponseEntity.ok(ApiResponse.ok("Time off type status updated to " + (saved.isActive() ? "ACTIVE" : "INACTIVE"), saved));
+    }
+
     @GetMapping("/balances")
     public ResponseEntity<ApiResponse<List<TimeOffBalanceResponse>>> getBalances(
             @RequestParam(required = false) UUID employeeId,
@@ -220,8 +230,15 @@ public class TimeOffController {
                 .build();
 
         TimeOffRequest applied = leaveLedgerService.applyLeave(request);
+
+        boolean isAdminOrHr = !currentUser.getRole().name().equals("EMPLOYEE");
+        if (isAdminOrHr) {
+            Employee approver = employeeRepository.findById(currentUser.getId()).orElse(employee);
+            applied = leaveLedgerService.approveRequest(applied.getId(), approver);
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok("Leave request submitted", TimeOffRequestResponse.from(applied)));
+                .body(ApiResponse.ok(isAdminOrHr ? "Leave request created and auto-approved" : "Leave request submitted", TimeOffRequestResponse.from(applied)));
     }
 
     @PutMapping("/requests/{id}/approve")

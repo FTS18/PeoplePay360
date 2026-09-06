@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
@@ -6,6 +6,7 @@ import { Mail, ChevronRight } from "lucide-react";
 import { Employee } from "@/types";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { ROUTES } from "@/config/routes";
+import { getDepartmentLead } from "@/utils/departmentLead";
 
 interface EmployeeKanbanProps {
   employees: Employee[];
@@ -114,13 +115,11 @@ export function EmployeeKanban({ employees }: EmployeeKanbanProps) {
                       </div>
 
                       <div className="mt-3 space-y-1.5 border-t border-stone-200/70 dark:border-stone-800/80 pt-2 text-[11px] text-muted-foreground">
-                        <div className="flex items-center justify-between">
-                          <span className="tabular-nums">{emp.employeeCode}</span>
-                          {groupBy === "status" && (
-                            <span className="font-medium text-foreground">
-                              {emp.department}
-                            </span>
-                          )}
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="tabular-nums font-semibold">{emp.employeeCode}</span>
+                          <span className="text-teal-700 dark:text-teal-400 font-semibold truncate max-w-[120px]" title={getDepartmentLead(emp.department, emp.managerName).name}>
+                            HR: {getDepartmentLead(emp.department, emp.managerName).name}
+                          </span>
                         </div>
                         <div className="flex items-center gap-1.5 truncate">
                           <Mail className="h-3 w-3 shrink-0 text-stone-400" strokeWidth={1.5} />

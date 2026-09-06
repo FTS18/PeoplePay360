@@ -10,11 +10,21 @@ ALTER TABLE payruns ADD COLUMN IF NOT EXISTS validated_at TIMESTAMPTZ;
 CREATE OR REPLACE FUNCTION trg_lock_finalized_payslip()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF OLD.status IN ('PAID', 'VALIDATED') THEN
-        RAISE EXCEPTION 'ImmutableRecordError: Finalized or paid payslips cannot be modified or deleted.';
-    END IF;
-    IF (TG_OP = 'DELETE') THEN
-        RETURN OLD;
+    IF OLD.status IN ('PAID', 'VALIDATED', 'finalized') THEN
+        IF (TG_OP = 'DELETE') THEN
+            RAISE EXCEPTION 'ImmutableRecordError: Finalized or paid payslips cannot be deleted.';
+        END IF;
+        IF (NEW.basic_wage IS DISTINCT FROM OLD.basic_wage OR
+            NEW.gross_salary IS DISTINCT FROM OLD.gross_salary OR
+            NEW.net_salary IS DISTINCT FROM OLD.net_salary OR
+            NEW.total_allowances IS DISTINCT FROM OLD.total_allowances OR
+            NEW.total_deductions IS DISTINCT FROM OLD.total_deductions OR
+            NEW.worked_days IS DISTINCT FROM OLD.worked_days OR
+            NEW.employee_id IS DISTINCT FROM OLD.employee_id OR
+            NEW.payrun_id IS DISTINCT FROM OLD.payrun_id OR
+            NEW.contract_id IS DISTINCT FROM OLD.contract_id) THEN
+            RAISE EXCEPTION 'ImmutableRecordError: Finalized or paid payslips financial figures cannot be modified.';
+        END IF;
     END IF;
     RETURN NEW;
 END;

@@ -81,13 +81,39 @@ public class EmployeeController {
 
     @CacheEvict(value = {"dashboardSummary", "departmentCosts", "monthlyTrends", "employeesList"}, allEntries = true)
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('HR_MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<EmployeeResponse>> updateEmployee(
             @PathVariable UUID id,
-            @Valid @RequestBody com.peoplepay360.modules.employee.dto.requests.UpdateEmployeeRequest request
+            @Valid @RequestBody com.peoplepay360.modules.employee.dto.requests.UpdateEmployeeRequest request,
+            @AuthenticationPrincipal SecurityUser currentUser
     ) {
-        EmployeeResponse updated = employeeService.updateEmployee(id, request);
+        Role requesterRole = currentUser != null ? currentUser.getRole() : null;
+        EmployeeResponse updated = employeeService.updateEmployee(id, request, requesterRole);
         return ResponseEntity.ok(ApiResponse.ok("Employee updated successfully", updated));
+    }
+
+    @CacheEvict(value = {"dashboardSummary", "departmentCosts", "monthlyTrends", "employeesList"}, allEntries = true)
+    @PatchMapping("/{id}/toggle-status")
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<EmployeeResponse>> toggleStatus(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal SecurityUser currentUser
+    ) {
+        Role requesterRole = currentUser != null ? currentUser.getRole() : null;
+        EmployeeResponse updated = employeeService.toggleStatus(id, requesterRole);
+        return ResponseEntity.ok(ApiResponse.ok("Employee status toggled successfully", updated));
+    }
+
+    @CacheEvict(value = {"dashboardSummary", "departmentCosts", "monthlyTrends", "employeesList"}, allEntries = true)
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteEmployee(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal SecurityUser currentUser
+    ) {
+        Role requesterRole = currentUser != null ? currentUser.getRole() : null;
+        employeeService.deleteEmployee(id, requesterRole);
+        return ResponseEntity.ok(ApiResponse.ok("Employee deleted successfully", null));
     }
 
     @CacheEvict(value = {"dashboardSummary", "departmentCosts", "monthlyTrends", "employeesList"}, allEntries = true)
@@ -98,7 +124,8 @@ public class EmployeeController {
             @Valid @RequestBody UpdateAccessRequest request,
             @AuthenticationPrincipal SecurityUser currentUser
     ) {
-        EmployeeResponse updated = employeeService.updateAccess(id, request, currentUser.getId());
+        Role requesterRole = currentUser != null ? currentUser.getRole() : null;
+        EmployeeResponse updated = employeeService.updateAccess(id, request, currentUser.getId(), requesterRole);
         return ResponseEntity.ok(ApiResponse.ok("User access updated successfully", updated));
     }
 }

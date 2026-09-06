@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Download, Play, Printer } from "lucide-react";
+import { X, Download, Play, Printer, Mail, CheckCircle2 } from "lucide-react";
 import { Payslip } from "@/types";
 import { payrollService } from "@/services/payrollService";
 import { formatCurrency } from "@/utils/format";
+import { useAuth } from "@/context/AuthContext";
 
 interface PayslipDetailModalProps {
   payslip: Payslip | null;
@@ -13,7 +14,12 @@ interface PayslipDetailModalProps {
 }
 
 export function PayslipDetailModal({ payslip, onClose }: PayslipDetailModalProps) {
+  const { hasRole } = useAuth();
+  const canSendEmail = hasRole(["ADMIN", "HR_MANAGER", "HR_PAYROLL_MANAGER"]);
+
   const [mounted, setMounted] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailMessage, setEmailMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -31,6 +37,20 @@ export function PayslipDetailModal({ payslip, onClose }: PayslipDetailModalProps
   if (!payslip || !mounted) return null;
 
   const lines = payslip.lines || [];
+
+  const handleSendEmail = async () => {
+    if (!payslip) return;
+    setSendingEmail(true);
+    setEmailMessage(null);
+    try {
+      await payrollService.sendSinglePayslipEmail(payslip.id);
+      setEmailMessage(`Payslip PDF email successfully dispatched to employee!`);
+    } catch (err: any) {
+      setEmailMessage(err?.message || "Failed to send payslip email");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-6 overflow-y-auto bg-stone-950/70 backdrop-blur-md animate-in fade-in duration-200">
@@ -54,8 +74,18 @@ export function PayslipDetailModal({ payslip, onClose }: PayslipDetailModalProps
               className="apple-press inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-teal-600 dark:bg-teal-500 text-white hover:bg-teal-700 transition-colors shadow-2xs cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" strokeWidth={1.5} />
-              PRINT PAYSLIP
+              <span>PRINT PAYSLIP</span>
             </button>
+            {canSendEmail && (
+              <button
+                onClick={handleSendEmail}
+                disabled={sendingEmail}
+                className="apple-press inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-700 text-white transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+              >
+                <Mail className="w-3.5 h-3.5" strokeWidth={1.5} />
+                <span>{sendingEmail ? "SENDING..." : "SEND EMAIL"}</span>
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors apple-press cursor-pointer"
@@ -164,9 +194,16 @@ export function PayslipDetailModal({ payslip, onClose }: PayslipDetailModalProps
           </div>
         </div>
 
+        {emailMessage && (
+          <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-xl text-xs text-teal-800 dark:text-teal-300 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" strokeWidth={1.5} />
+            <span>{emailMessage}</span>
+          </div>
+        )}
+
         {/* Footer Note matching Wireframe 2B */}
         <p className="text-[11px] text-muted-foreground/80 italic pt-1 border-t border-border">
-          Useful note: the Print action generates the employee payslip as PDF; that PDF can be sent from the parent Payrun.
+          Useful note: the Print action generates the employee payslip as PDF; individual payslip PDFs can also be emailed directly to the employee.
         </p>
       </div>
     </div>,

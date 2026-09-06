@@ -6,11 +6,25 @@ import { useAuth } from "@/context/AuthContext";
 import { attendanceService } from "@/services/attendanceService";
 
 export function PunchClockWidget() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [time, setTime] = useState<string>("");
   const [isPunchedIn, setIsPunchedIn] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [lastPunch, setLastPunch] = useState<string | null>(null);
+
+  if (role === "ADMIN") {
+    return (
+      <div className="rounded-2xl border border-[var(--border)] dark:border-[var(--border-subtle)] bg-white/95 dark:bg-[var(--card)] p-5 shadow-apple-sm backdrop-blur-md text-center space-y-2">
+        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
+          <Clock className="h-5 w-5" strokeWidth={1.5} />
+        </div>
+        <h4 className="text-xs font-bold text-foreground">System Administrator Profile</h4>
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          Biometric punch terminal is disabled for executive administrator accounts.
+        </p>
+      </div>
+    );
+  }
 
   useEffect(() => {
     const updateTime = () => {

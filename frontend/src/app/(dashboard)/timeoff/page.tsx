@@ -97,28 +97,18 @@ function TimeOffContent() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--foreground)]">Time-Off & Leave Portal</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--foreground)]">Time-Off &amp; Leave Portal</h1>
           <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
             Manage entitlement balances, submit vacation or medical leaves, and review approval queues.
           </p>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button
-            onClick={loadData}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-1.5 flex-1 sm:flex-initial px-3.5 py-2 bg-white/95 dark:bg-[var(--card)] hover:bg-[var(--muted)] dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-semibold rounded-full border border-[var(--border)] dark:border-[var(--border-subtle)] shadow-apple-sm cursor-pointer transition-all apple-press"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} strokeWidth={1.5} />
-            Refresh
-          </button>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 flex-1 sm:flex-initial px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-full shadow-md shadow-teal-900/20 transition-all cursor-pointer apple-press"
-          >
-            <Plus className="w-4 h-4" strokeWidth={1.75} />
-            Request Leave
-          </button>
-        </div>
+        <button
+          onClick={() => setModalOpen(true)}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-full shadow-md shadow-teal-900/20 transition-all cursor-pointer apple-press self-start sm:self-auto"
+        >
+          <Plus className="w-4 h-4" strokeWidth={1.75} />
+          Request Leave
+        </button>
       </div>
 
       {/* Leave Balances Ribbon */}

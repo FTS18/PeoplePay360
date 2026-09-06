@@ -113,6 +113,15 @@ public class WorkingScheduleController {
         return ResponseEntity.ok(ApiResponse.ok("Working schedule updated", ScheduleResponse.from(updated)));
     }
 
+    @PutMapping("/{id}/toggle-status")
+    @PreAuthorize("hasAnyRole('HR_MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<ScheduleResponse>> toggleScheduleStatus(@PathVariable UUID id) {
+        WorkingSchedule existing = scheduleService.getScheduleById(id);
+        existing.setActive(!existing.isActive());
+        WorkingSchedule updated = scheduleService.saveSchedule(existing);
+        return ResponseEntity.ok(ApiResponse.ok("Working schedule status updated to " + (updated.isActive() ? "ACTIVE" : "INACTIVE"), ScheduleResponse.from(updated)));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('HR_MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteSchedule(@PathVariable UUID id) {

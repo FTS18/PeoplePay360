@@ -38,12 +38,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isDenied = Boolean(mounted && matchedGuard && !matchedGuard.roles.includes(role));
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground transition-colors duration-150">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground transition-colors duration-150">
       {/* Fixed Full-Height Dark Vertical Sidebar */}
       <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
 
       {/* Content Workspace */}
-      <div className="flex-1 flex flex-col min-w-0 md:pl-64">
+      <div className="flex-1 flex flex-col min-w-0 md:pl-64 h-screen overflow-y-auto">
         <TopBar onMobileMenuOpen={() => setMobileOpen(true)} />
         <main className="flex-1 p-4 sm:p-6 md:p-8">
           {isDenied && matchedGuard ? (

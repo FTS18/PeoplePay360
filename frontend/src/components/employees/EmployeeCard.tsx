@@ -1,9 +1,10 @@
-﻿import React from "react";
+import React from "react";
 import Link from "next/link";
 import { Mail, Phone, ChevronRight } from "lucide-react";
 import { Employee } from "@/types";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { ROUTES } from "@/config/routes";
+import { getDepartmentLead } from "@/utils/departmentLead";
 
 interface EmployeeCardProps {
   employee: Employee;
@@ -41,6 +42,12 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
           <div className="flex items-center justify-between text-[11px]">
             <span>Department</span>
             <span className="font-medium text-foreground">{employee.department}</span>
+          </div>
+          <div className="flex items-center justify-between text-[11px] bg-teal-500/5 dark:bg-teal-500/10 p-1.5 rounded-lg border border-teal-500/20">
+            <span className="text-stone-500 dark:text-stone-400 font-medium">Dept Lead / HR</span>
+            <span className="font-bold text-teal-700 dark:text-teal-400 truncate max-w-[140px]" title={getDepartmentLead(employee.department, employee.managerName).name}>
+              {getDepartmentLead(employee.department, employee.managerName).name}
+            </span>
           </div>
           <div className="flex items-center gap-2 truncate text-[11px]">
             <Mail className="h-3 w-3 shrink-0 text-stone-400" strokeWidth={1.5} />

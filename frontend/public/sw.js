@@ -1,4 +1,4 @@
-const CACHE_NAME = "peoplepay360-v1";
+const CACHE_NAME = "peoplepay360-v2";
 const STATIC_ASSETS = [
   "/",
   "/dashboard",
@@ -19,7 +19,7 @@ self.addEventListener("install", (event) => {
         STATIC_ASSETS.map((asset) =>
           fetch(asset)
             .then((res) => {
-              if (res.ok) {
+              if (res && res.ok) {
                 return cache.put(asset, res);
               }
             })
@@ -50,40 +50,48 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests and API calls (API requests are handled by apiClient + IndexedDB)
-  if (request.method !== "GET" || url.pathname.startsWith("/api/")) {
+  // Skip non-GET requests, API calls, and Next.js internal HMR / _next requests
+  if (
+    request.method !== "GET" ||
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/_next/")
+  ) {
     return;
   }
 
-  // Network-first for HTML pages, stale-while-revalidate for static assets
+  // Network-first for HTML page navigation, fallback to cache or valid 503 Response
   if (request.mode === "navigate" || request.headers.get("accept")?.includes("text/html")) {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok) {
+          if (response && response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           }
           return response;
         })
-        .catch(() => {
-          return caches.match(request).then((cached) => cached || caches.match("/"));
+        .catch(async () => {
+          const cached = await caches.match(request);
+          if (cached) return cached;
+          const fallback = await caches.match("/");
+          if (fallback) return fallback;
+          return new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain" } });
         })
     );
   } else {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        const fetchPromise = fetch(request)
-          .then((networkResponse) => {
-            if (networkResponse.ok) {
-              const clone = networkResponse.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-            }
-            return networkResponse;
-          })
-          .catch(() => cached);
-
-        return cached || fetchPromise;
+      caches.match(request).then(async (cached) => {
+        if (cached) return cached;
+        try {
+          const response = await fetch(request);
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        } catch {
+          return new Response("Network Error", { status: 504 });
+        }
       })
     );
   }

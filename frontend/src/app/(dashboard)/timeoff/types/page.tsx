@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Plus, RefreshCw, CalendarDays, Pencil, Search } from "lucide-react";
 import { timeoffService } from "@/services/timeoffService";
+import { apiClient } from "@/services/apiClient";
 import { TimeOffType } from "@/types";
 import { Table, Column } from "@/components/common/Table";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -58,6 +59,16 @@ function TimeOffTypesContent() {
     );
   }, [types, searchQuery]);
 
+  const handleToggleStatus = async (e: React.MouseEvent, typeId: string) => {
+    e.stopPropagation();
+    try {
+      await apiClient.put(`/timeoff/types/${typeId}/toggle-status`, {});
+      setTypes((prev) => prev.map((t) => (t.id === typeId ? { ...t, active: t.active === false } : t)));
+    } catch {
+      console.error("Failed to toggle time off type status");
+    }
+  };
+
   const columns: Column<TimeOffType>[] = [
     {
       header: "Type",
@@ -100,7 +111,19 @@ function TimeOffTypesContent() {
       width: "12%",
       align: "center",
       render: (t) => (
-        <StatusBadge status={t.active !== false ? "ACTIVE" : "INACTIVE"} />
+        <button
+          type="button"
+          onClick={(e) => handleToggleStatus(e, t.id)}
+          title="Click to toggle Active / Inactive status"
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider cursor-pointer apple-press transition-all ${
+            t.active !== false
+              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20"
+              : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20 hover:bg-red-500/20"
+          }`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${t.active !== false ? "bg-emerald-500" : "bg-red-500"}`} />
+          {t.active !== false ? "Active" : "Inactive"}
+        </button>
       ),
     },
   ];
@@ -140,25 +163,15 @@ function TimeOffTypesContent() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {canManage && (
           <button
-            onClick={loadData}
-            disabled={loading}
-            className="apple-press inline-flex items-center gap-1.5 px-3.5 py-2 bg-card hover:bg-muted text-foreground text-xs font-semibold rounded-xl border border-border shadow-2xs cursor-pointer"
+            onClick={() => setModalOpen(true)}
+            className="apple-press inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-teal-600" : ""}`} strokeWidth={1.5} />
-            Refresh
+            <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
+            NEW
           </button>
-          {canManage && (
-            <button
-              onClick={() => setModalOpen(true)}
-              className="apple-press inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
-              NEW
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Wireframe Search Bar */}

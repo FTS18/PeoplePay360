@@ -109,29 +109,27 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: dev               # uses the `dev` stage (next dev)
+      target: dev
     container_name: pp360_frontend
     restart: unless-stopped
     depends_on:
       - backend
+    command: ["npm", "run", "start"]
     environment:
       # Points rewrites() to the Docker backend service, not localhost
       NEXT_PUBLIC_API_HOST: http://backend:8080
-      # Required on Windows Docker Desktop — inotify doesn't work on NTFS bind mounts
-      WATCHPACK_POLLING: "true"
       NEXT_TELEMETRY_DISABLED: "1"
+      NODE_ENV: "production"
     ports:
       - "3000:3000"
     volumes:
-      # Mount source dirs for hot reload — exclude node_modules (use image copy)
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
       - ./frontend/next.config.mjs:/app/next.config.mjs
       - ./frontend/tsconfig.json:/app/tsconfig.json
       - ./frontend/tailwind.config.ts:/app/tailwind.config.ts
       - ./frontend/postcss.config.mjs:/app/postcss.config.mjs
-      # Persist Next.js build cache across restarts
-      - nextjs_cache:/app/.next
+      - ./frontend/.next:/app/.next
     networks:
       - pp360_net
 

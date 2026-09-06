@@ -24,6 +24,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { EmployeeModal } from "@/components/employees/EmployeeModal";
 import { ROUTES } from "@/config/routes";
 import { apiClient } from "@/services/apiClient";
+import { getDepartmentLead } from "@/utils/departmentLead";
 
 export default function EmployeeDetailPage() {
   const params = useParams();
@@ -215,9 +216,19 @@ export default function EmployeeDetailPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-muted-foreground font-medium">Manager</label>
-                <div className="p-2.5 rounded-xl border border-border bg-muted/30 font-semibold text-foreground">
-                  {employee.managerName || "Sara Khan"}
+                <label className="text-muted-foreground font-medium">Department Lead & Assigned HR</label>
+                <div className="p-3 rounded-xl border border-teal-500/25 bg-teal-500/5 dark:bg-teal-500/10 font-semibold text-foreground flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-teal-700 dark:text-teal-400">
+                      {getDepartmentLead(employee.department, employee.managerName).name}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground font-normal">
+                      {getDepartmentLead(employee.department, employee.managerName).position}
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/60 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                    Assigned HR Lead
+                  </span>
                 </div>
               </div>
 

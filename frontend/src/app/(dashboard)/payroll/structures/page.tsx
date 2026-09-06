@@ -77,22 +77,12 @@ function SalaryStructuresContent() {
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">List & Form view for salary structure rule containers</p>
         </div>
-        <div className="flex items-center gap-2">
-          {!canEdit && (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20 text-xs font-medium">
-              <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
-              <span>Read-Only</span>
-            </div>
-          )}
-          <button
-            onClick={fetchStructures}
-            disabled={loading}
-            className="apple-press inline-flex items-center gap-1.5 px-3.5 py-2 bg-card hover:bg-muted text-foreground text-xs font-semibold rounded-xl border border-border shadow-2xs cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-teal-600" : ""}`} strokeWidth={1.5} />
-            <span>Refresh</span>
-          </button>
-        </div>
+        {!canEdit && (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20 text-xs font-medium">
+            <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
+            <span>Read-Only</span>
+          </div>
+        )}
       </div>
 
       {/* Main 2-Column Split matching Wireframe 5 */}

@@ -214,6 +214,20 @@ public class PayrunController {
         return ResponseEntity.ok(ApiResponse.ok(msg, result));
     }
 
+    @PostMapping("/payslips/{id}/send-email")
+    @PreAuthorize("hasAnyRole('HR_PAYROLL_MANAGER', 'HR_MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<String>> sendSinglePayslipEmail(@PathVariable UUID id) {
+        Payslip payslip = payslipRepository.findWithDetailsById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Payslip", "id", id));
+
+        boolean sent = emailDispatchService.sendPayslipEmail(payslip);
+        if (!sent) {
+            throw new BusinessRuleViolationException("Failed to dispatch payslip email for employee " +
+                    (payslip.getEmployee() != null ? payslip.getEmployee().getEmail() : ""));
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Payslip PDF email dispatched successfully to " + payslip.getEmployee().getEmail(), "OK"));
+    }
+
     @DeleteMapping("/payruns/{id}")
     @PreAuthorize("hasAnyRole('HR_PAYROLL_MANAGER', 'ADMIN')")
     @Transactional

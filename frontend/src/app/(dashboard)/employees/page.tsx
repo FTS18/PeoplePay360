@@ -3,8 +3,10 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronRight, Users, Plus } from "lucide-react";
+import { ChevronRight, ChevronLeft, Users, Plus, Trash2 } from "lucide-react";
 import { Employee } from "@/types";
+import { useAuth } from "@/context/AuthContext";
+import { canManageUser } from "@/utils/departmentLead";
 import { EmployeeCard } from "@/components/employees/EmployeeCard";
 import { EmployeeKanban } from "@/components/employees/EmployeeKanban";
 import { EmployeeFilters } from "@/components/employees/EmployeeFilters";
@@ -16,6 +18,7 @@ import { ROUTES } from "@/config/routes";
 import { apiClient } from "@/services/apiClient";
 
 function EmployeesContent() {
+  const { role: currentUserRole } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [search, setSearch] = useState("");
@@ -24,16 +27,19 @@ function EmployeesContent() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const searchParams = useSearchParams();
-  const pageParam = parseInt(searchParams?.get("page") || "0", 10);
-  const [totalPages, setTotalPages] = useState(0);
+  const initialPage = parseInt(searchParams?.get("page") || "0", 10);
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [pageSize, setPageSize] = useState<number>(100);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalElements, setTotalElements] = useState(0);
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       try {
         const queryParams = new URLSearchParams({
-          page: pageParam.toString(),
-          size: "20",
+          page: currentPage.toString(),
+          size: pageSize.toString(),
         });
         if (search) queryParams.append("search", search);
         if (department) queryParams.append("department", department);
@@ -41,10 +47,12 @@ function EmployeesContent() {
         const res = await apiClient.get<any>(`/employees?${queryParams.toString()}`);
         if (res && res.content) {
           setEmployees(res.content);
-          setTotalPages(res.totalPages || 0);
+          setTotalPages(res.totalPages || 1);
+          setTotalElements(res.totalElements || res.content.length);
         } else if (Array.isArray(res)) {
           setEmployees(res);
           setTotalPages(1);
+          setTotalElements(res.length);
         }
       } catch {
         // Retain existing state if any
@@ -53,7 +61,7 @@ function EmployeesContent() {
       }
     }
     loadData();
-  }, [pageParam, search, department]);
+  }, [currentPage, pageSize, search, department]);
 
   const departments = useMemo(
     () => Array.from(new Set(employees.map((e) => e.department).filter(Boolean))),
@@ -63,11 +71,41 @@ function EmployeesContent() {
   // Filtering is now handled on the backend via URL parameters in loadData.
   const filtered = employees;
 
+  const handleToggleEmployeeStatus = async (e: React.MouseEvent, emp: Employee) => {
+    e.stopPropagation();
+    if (!canManageUser(currentUserRole, emp.role)) {
+      return;
+    }
+    const nextStatus = emp.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    try {
+      await apiClient.patch(`/employees/${emp.id}/toggle-status`);
+      setEmployees((prev) => prev.map((x) => (x.id === emp.id ? { ...x, status: nextStatus } : x)));
+    } catch {
+      console.error("Failed to toggle employee status");
+    }
+  };
+
+  const handleDeleteEmployee = async (e: React.MouseEvent, emp: Employee) => {
+    e.stopPropagation();
+    if (!canManageUser(currentUserRole, emp.role)) {
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to delete employee '${emp.firstName} ${emp.lastName}'?`)) {
+      return;
+    }
+    try {
+      await apiClient.delete(`/employees/${emp.id}`);
+      setEmployees((prev) => prev.filter((x) => x.id !== emp.id));
+    } catch (err: any) {
+      alert(err?.message || "Failed to delete employee");
+    }
+  };
+
   const columns: Column<Employee>[] = [
     {
       header: "Employee",
       accessor: "firstName",
-      width: "28%",
+      width: "25%",
       render: (emp) => (
         <Link href={ROUTES.EMPLOYEES.DETAIL(emp.id)} className="group block">
           <EmployeeCell name={`${emp.firstName} ${emp.lastName}`} subtext={emp.employeeCode} />
@@ -77,21 +115,50 @@ function EmployeesContent() {
     {
       header: "Work Email",
       accessor: "email",
-      width: "24%",
+      width: "22%",
       render: (emp) => (
         <span className="text-xs text-muted-foreground font-medium truncate block max-w-[200px]">
           {emp.email || "-"}
         </span>
       ),
     },
-    { header: "Job Position", accessor: "jobPosition", width: "20%" },
-    { header: "Department", accessor: "department", width: "16%" },
+    { header: "Job Position", accessor: "jobPosition", width: "18%" },
+    { header: "Department", accessor: "department", width: "15%" },
     {
       header: "Status",
       accessor: "status",
       width: "12%",
       align: "center",
-      render: (emp) => <StatusBadge status={emp.status} />,
+      render: (emp) => {
+        const isEditable = canManageUser(currentUserRole, emp.role);
+        return (
+          <StatusBadge
+            status={emp.status}
+            onClick={isEditable ? (e) => handleToggleEmployeeStatus(e, emp) : undefined}
+            title={isEditable ? "Click to toggle status" : "Cannot modify users of equal or higher role level"}
+          />
+        );
+      },
+    },
+    {
+      header: "Actions",
+      accessor: "id",
+      width: "8%",
+      align: "center",
+      render: (emp) => {
+        const canDelete = canManageUser(currentUserRole, emp.role);
+        if (!canDelete) return <span className="text-[10px] text-muted-foreground italic">Protected</span>;
+        return (
+          <button
+            type="button"
+            onClick={(e) => handleDeleteEmployee(e, emp)}
+            title="Delete Employee"
+            className="apple-press p-1.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+        );
+      },
     },
   ];
 
@@ -173,8 +240,61 @@ function EmployeesContent() {
         <Table 
           columns={columns} 
           data={filtered} 
-          pagination={{ currentPage: pageParam, totalPages }} 
+          pagination={{ currentPage: currentPage, totalPages }} 
         />
+      )}
+
+      {/* Interactive Pagination Bar */}
+      {!loading && filtered.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border/80 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span>
+              Showing <strong className="text-foreground tabular-nums">{employees.length > 0 ? currentPage * pageSize + 1 : 0}</strong>–
+              <strong className="text-foreground tabular-nums">{Math.min((currentPage + 1) * pageSize, totalElements)}</strong> of{" "}
+              <strong className="text-foreground tabular-nums">{totalElements}</strong> employees
+            </span>
+            <span className="text-stone-300 dark:text-stone-700">•</span>
+            <div className="flex items-center gap-1.5">
+              <span>Page Size:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(0);
+                }}
+                className="rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground focus:outline-none cursor-pointer shadow-2xs"
+              >
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={500}>500 (All)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+              disabled={currentPage === 0}
+              className="apple-press inline-flex items-center gap-1 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Previous
+            </button>
+            <span className="px-2 font-semibold text-foreground tabular-nums">
+              Page {currentPage + 1} of {Math.max(1, totalPages)}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={currentPage >= totalPages - 1}
+              className="apple-press inline-flex items-center gap-1 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          </div>
+        </div>
       )}
 
       <EmployeeModal

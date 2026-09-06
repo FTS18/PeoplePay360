@@ -105,10 +105,32 @@ public class EmployeeService {
         return EmployeeResponse.from(employeeRepository.save(employee));
     }
 
+    public static int getRoleLevel(Role role) {
+        if (role == null) return 0;
+        return switch (role) {
+            case ADMIN -> 500;
+            case HR_PAYROLL_MANAGER -> 400;
+            case HR_MANAGER -> 300;
+            case HR_PAYROLL_USER -> 200;
+            case EMPLOYEE -> 100;
+        };
+    }
+
+    public void validateRoleHierarchy(Role requesterRole, Role targetRole) {
+        if (requesterRole == null) return;
+        int requesterLevel = getRoleLevel(requesterRole);
+        int targetLevel = getRoleLevel(targetRole);
+        if (targetLevel >= requesterLevel) {
+            throw new BusinessRuleViolationException("You cannot modify, change status of, or delete a user with an equal or higher role level.");
+        }
+    }
+
     @Transactional
-    public EmployeeResponse updateEmployee(UUID id, com.peoplepay360.modules.employee.dto.requests.UpdateEmployeeRequest request) {
+    public EmployeeResponse updateEmployee(UUID id, com.peoplepay360.modules.employee.dto.requests.UpdateEmployeeRequest request, Role requesterRole) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", id));
+
+        validateRoleHierarchy(requesterRole, employee.getRole());
 
         if (request.getFirstName() != null && !request.getFirstName().isBlank()) {
             employee.setFirstName(request.getFirstName().trim());
@@ -132,6 +154,7 @@ public class EmployeeService {
             employee.setJobPosition(request.getJobPosition().trim());
         }
         if (request.getRole() != null) {
+            validateRoleHierarchy(requesterRole, request.getRole());
             employee.setRole(request.getRole());
         }
         if (request.getStatus() != null) {
@@ -168,12 +191,44 @@ public class EmployeeService {
     }
 
     @Transactional
-    public EmployeeResponse updateAccess(UUID id, UpdateAccessRequest request, UUID requesterId) {
+    public EmployeeResponse toggleStatus(UUID id, Role requesterRole) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", id));
+
+        validateRoleHierarchy(requesterRole, employee.getRole());
+
+        EmployeeStatus nextStatus = (employee.getStatus() == EmployeeStatus.ACTIVE) ? EmployeeStatus.INACTIVE : EmployeeStatus.ACTIVE;
+        employee.setStatus(nextStatus);
+        return EmployeeResponse.from(employeeRepository.save(employee));
+    }
+
+    @Transactional
+    public void deleteEmployee(UUID id, Role requesterRole) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", id));
+
+        validateRoleHierarchy(requesterRole, employee.getRole());
+
+        if (employee.getRole() == Role.ADMIN) {
+            long adminCount = employeeRepository.countByRole(Role.ADMIN);
+            if (adminCount <= 1) {
+                throw new BusinessRuleViolationException("Cannot delete the only Admin account in the system");
+            }
+        }
+
+        employeeRepository.delete(employee);
+    }
+
+    @Transactional
+    public EmployeeResponse updateAccess(UUID id, UpdateAccessRequest request, UUID requesterId, Role requesterRole) {
         if (id.equals(requesterId)) {
             throw new BusinessRuleViolationException("You cannot modify your own access role");
         }
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", id));
+
+        validateRoleHierarchy(requesterRole, employee.getRole());
+        validateRoleHierarchy(requesterRole, request.getRole());
 
         // Prevent stripping the last ADMIN
         if (employee.getRole() == Role.ADMIN && request.getRole() != Role.ADMIN) {

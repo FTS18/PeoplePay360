@@ -4,9 +4,11 @@ import { cn } from "@/utils/cn";
 interface StatusBadgeProps {
   status: string;
   className?: string;
+  onClick?: (e: React.MouseEvent) => void;
+  title?: string;
 }
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
+export function StatusBadge({ status, className, onClick, title }: StatusBadgeProps) {
   const normalized = status?.toUpperCase() || "UNKNOWN";
 
   const getVariant = () => {
@@ -51,6 +53,30 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
 
   const label = normalized === "CONFIRM" ? "PENDING" : normalized.replace(/_/g, " ");
 
+  const badgeContent = (
+    <>
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {label}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title={title || `Click to toggle ${label} status`}
+        className={cn(
+          "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border tracking-wide cursor-pointer apple-press hover:opacity-80 transition-all",
+          getVariant(),
+          className
+        )}
+      >
+        {badgeContent}
+      </button>
+    );
+  }
+
   return (
     <span
       className={cn(
@@ -59,8 +85,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
         className
       )}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {label}
+      {badgeContent}
     </span>
   );
 }

@@ -60,7 +60,7 @@ export function MetricCard({
         {loading ? (
           <div className="h-7 w-24 bg-[var(--muted)] dark:bg-stone-800 rounded-lg animate-pulse" />
         ) : (
-          <div className="text-2xl font-bold tracking-tight text-[var(--foreground)] tabular-nums tabular-nums" suppressHydrationWarning>
+          <div className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--foreground)] tabular-nums" suppressHydrationWarning>
             {value}
           </div>
         )}

@@ -16,6 +16,13 @@ interface DepartmentSummary {
   managerName?: string;
 }
 
+interface EmployeeOption {
+  id: string;
+  name: string;
+  department: string;
+  jobPosition: string;
+}
+
 export default function DepartmentsPage() {
   return (
     <RoleGuard allowedRoles={["ADMIN", "HR_MANAGER", "HR_PAYROLL_MANAGER"]} pageName="Departments Management">
@@ -29,6 +36,7 @@ function DepartmentsContent() {
   const canManage = hasRole(["ADMIN", "HR_MANAGER"]);
 
   const [departments, setDepartments] = useState<DepartmentSummary[]>([]);
+  const [allEmployees, setAllEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -41,6 +49,14 @@ function DepartmentsContent() {
     try {
       const res = await apiClient.get<any>("/employees?size=200");
       const emps: any[] = res?.content || (Array.isArray(res) ? res : []);
+
+      const mappedEmps: EmployeeOption[] = emps.map((emp) => ({
+        id: emp.id,
+        name: `${emp.firstName} ${emp.lastName}`,
+        department: emp.department || "General",
+        jobPosition: emp.jobPosition || "Staff",
+      }));
+      setAllEmployees(mappedEmps);
 
       const deptMap: Record<string, { name: string; headcount: number; activeContracts: number; managerName?: string }> = {};
 
@@ -242,13 +258,21 @@ function DepartmentsContent() {
 
           <div className="space-y-1">
             <label className="text-xs font-semibold text-foreground">Department Lead / Manager</label>
-            <input
-              type="text"
-              placeholder="e.g. Rajesh Gupta"
+            <select
               value={deptLead}
               onChange={(e) => setDeptLead(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500/50"
-            />
+              className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500/50 cursor-pointer"
+            >
+              <option value="">Unassigned (Select Lead)</option>
+              {deptLead && !allEmployees.some((e) => e.name === deptLead) && (
+                <option value={deptLead}>{deptLead}</option>
+              )}
+              {allEmployees.map((emp) => (
+                <option key={emp.id} value={emp.name}>
+                  {emp.name} — {emp.jobPosition} ({emp.department})
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/60">
@@ -294,12 +318,32 @@ function DepartmentsContent() {
 
           <div className="space-y-1">
             <label className="text-xs font-semibold text-foreground">Department Lead / Manager</label>
-            <input
-              type="text"
+            <select
               value={deptLead}
               onChange={(e) => setDeptLead(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500/50"
-            />
+              className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500/50 cursor-pointer"
+            >
+              <option value="">Unassigned (Select Lead)</option>
+              {deptLead && !allEmployees.some((e) => e.name === deptLead) && (
+                <option value={deptLead}>{deptLead}</option>
+              )}
+              {allEmployees
+                .slice()
+                .sort((a, b) => {
+                  if (deptName) {
+                    const aInDept = a.department.toLowerCase() === deptName.toLowerCase();
+                    const bInDept = b.department.toLowerCase() === deptName.toLowerCase();
+                    if (aInDept && !bInDept) return -1;
+                    if (!aInDept && bInDept) return 1;
+                  }
+                  return a.name.localeCompare(b.name);
+                })
+                .map((emp) => (
+                  <option key={emp.id} value={emp.name}>
+                    {emp.name} — {emp.jobPosition} ({emp.department})
+                  </option>
+                ))}
+            </select>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/60">

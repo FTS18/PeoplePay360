@@ -73,12 +73,13 @@ public class DashboardController {
         private BigDecimal totalNet;
     }
 
-    @Cacheable(value = "dashboardSummary", key = "(#sinceDate != null ? #sinceDate.toString() : 'default') + '-' + (#untilDate != null ? #untilDate.toString() : 'default') + '-' + (#department != null ? #department : 'ALL') + '-' + (#role != null ? #role.name() : 'ALL')")
+    @Cacheable(value = "dashboardSummary", key = "(#sinceDate != null ? #sinceDate.toString() : 'default') + '-' + (#untilDate != null ? #untilDate.toString() : 'default') + '-' + (#department != null ? #department : 'ALL') + '-' + (#employeeType != null ? #employeeType : 'ALL') + '-' + (#role != null ? #role.name() : 'ALL')")
     @GetMapping("/summary")
     public ApiResponse<DashboardSummaryResponse> getSummary(
             @RequestParam(required = false) LocalDate sinceDate,
             @RequestParam(required = false) LocalDate untilDate,
             @RequestParam(required = false) String department,
+            @RequestParam(required = false) String employeeType,
             @RequestParam(required = false) Role role
     ) {
         LocalDate queryDate = sinceDate != null ? sinceDate : LocalDate.now().minusMonths(12);
@@ -86,8 +87,8 @@ public class DashboardController {
 
         // ── 1 query: SUM + AVG in target date window ──
         PayrollAggregateProjection windowAggregates = (untilDate != null)
-                ? dashboardQueryRepository.getPayrollAggregatesBetween(queryDate, endDate, department, role)
-                : dashboardQueryRepository.getPayrollAggregates(queryDate, department, role);
+                ? dashboardQueryRepository.getPayrollAggregatesBetween(queryDate, endDate, department, role, employeeType)
+                : dashboardQueryRepository.getPayrollAggregates(queryDate, department, role, employeeType);
 
         BigDecimal totalPaid = (windowAggregates != null && windowAggregates.getTotalNet() != null)
                 ? windowAggregates.getTotalNet()
@@ -169,7 +170,7 @@ public class DashboardController {
                     .link("/payroll/payruns")
                     .build());
         }
-        List<MonthlyPayrollTrendProjection> trends = dashboardQueryRepository.findMonthlyPayrollTrends(EPOCH_START, department, role);
+        List<MonthlyPayrollTrendProjection> trends = dashboardQueryRepository.findMonthlyPayrollTrends(EPOCH_START, department, role, employeeType);
         Double momGrowth = null;
         if (trends != null && trends.size() >= 2) {
             BigDecimal latestMonthNet = trends.get(trends.size() - 1).getTotalNet();
@@ -218,20 +219,21 @@ public class DashboardController {
         return ApiResponse.ok(response);
     }
 
-    @Cacheable(value = "departmentCosts", key = "(#sinceDate != null ? #sinceDate.toString() : 'default') + '-' + (#untilDate != null ? #untilDate.toString() : 'default') + '-' + (#department != null ? #department : 'ALL') + '-' + (#role != null ? #role.name() : 'ALL')")
+    @Cacheable(value = "departmentCosts", key = "(#sinceDate != null ? #sinceDate.toString() : 'default') + '-' + (#untilDate != null ? #untilDate.toString() : 'default') + '-' + (#department != null ? #department : 'ALL') + '-' + (#employeeType != null ? #employeeType : 'ALL') + '-' + (#role != null ? #role.name() : 'ALL')")
     @GetMapping("/department-costs")
     public ApiResponse<List<DepartmentCostDto>> getDepartmentCosts(
             @RequestParam(required = false) LocalDate sinceDate,
             @RequestParam(required = false) LocalDate untilDate,
             @RequestParam(required = false) String department,
+            @RequestParam(required = false) String employeeType,
             @RequestParam(required = false) Role role
     ) {
         LocalDate queryDate = sinceDate != null ? sinceDate : LocalDate.now().minusMonths(12);
         LocalDate endDate = untilDate != null ? untilDate : LocalDate.of(2030, 12, 31);
 
         List<DepartmentCostProjection> projections = (untilDate != null)
-                ? dashboardQueryRepository.findDepartmentCostBreakdownBetween(queryDate, endDate, department, role)
-                : dashboardQueryRepository.findDepartmentCostBreakdown(queryDate, department, role);
+                ? dashboardQueryRepository.findDepartmentCostBreakdownBetween(queryDate, endDate, department, role, employeeType)
+                : dashboardQueryRepository.findDepartmentCostBreakdownBetween(queryDate, endDate, department, role, employeeType);
 
         List<DepartmentCostDto> costs = (projections != null ? projections : java.util.Collections.<DepartmentCostProjection>emptyList()).stream()
                 .map(p -> DepartmentCostDto.builder()
@@ -245,17 +247,18 @@ public class DashboardController {
         return ApiResponse.ok(costs);
     }
 
-    @Cacheable(value = "monthlyTrends", key = "(#sinceDate != null ? #sinceDate.toString() : 'default') + '-' + (#department != null ? #department : 'ALL') + '-' + (#role != null ? #role.name() : 'ALL')")
+    @Cacheable(value = "monthlyTrends", key = "(#sinceDate != null ? #sinceDate.toString() : 'default') + '-' + (#department != null ? #department : 'ALL') + '-' + (#employeeType != null ? #employeeType : 'ALL') + '-' + (#role != null ? #role.name() : 'ALL')")
     @GetMapping("/monthly-trends")
     public ApiResponse<List<MonthlyPayrollTrendDto>> getMonthlyTrends(
             @RequestParam(required = false) LocalDate sinceDate,
             @RequestParam(required = false) String department,
+            @RequestParam(required = false) String employeeType,
             @RequestParam(required = false) Role role
     ) {
         LocalDate queryDate = sinceDate != null ? sinceDate : LocalDate.now().minusMonths(12);
-        List<MonthlyPayrollTrendProjection> projections = dashboardQueryRepository.findMonthlyPayrollTrends(queryDate, department, role);
+        List<MonthlyPayrollTrendProjection> projections = dashboardQueryRepository.findMonthlyPayrollTrends(queryDate, department, role, employeeType);
         if (projections == null || projections.isEmpty()) {
-            projections = dashboardQueryRepository.findMonthlyPayrollTrends(EPOCH_START, department, role);
+            projections = dashboardQueryRepository.findMonthlyPayrollTrends(EPOCH_START, department, role, employeeType);
         }
 
         List<MonthlyPayrollTrendDto> trends = projections.stream()

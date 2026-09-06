@@ -7,6 +7,7 @@ import { CreditCard, Lock, Mail, ArrowRight, Sparkles, UserCircle2, Briefcase, A
 import { useAuth } from "@/context/AuthContext";
 import { Role } from "@/types";
 import { ROUTES } from "@/config/routes";
+import { getDepartmentLead } from "@/utils/departmentLead";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,19 +23,20 @@ export default function LoginPage() {
 
   const FALLBACK_DEMO_USERS: Record<Role, any[]> = {
     ADMIN: [
-      { id: "daed6b24-c7fd-4738-9228-71b5c871e17a", email: "admin@peoplepay360.com", fullName: "Aarav Sharma", employeeCode: "EMP001", jobPosition: "System Administrator", role: "ADMIN" }
+      { id: "c8093365-805b-46a4-8002-79f0e218cd84", email: "shikharyadav595@gmail.com", fullName: "Aarav Sharma", employeeCode: "EMP001", jobPosition: "Chief Executive Officer", role: "ADMIN" },
+      { id: "bd5ebf12-eaa3-4ba9-a199-036261b96958", email: "dubeyananay@gmail.com", fullName: "Priya Nair", employeeCode: "EMP002", jobPosition: "Chief Technology Officer", role: "ADMIN" }
     ],
     HR_PAYROLL_MANAGER: [
-      { id: "3913c49f-ed1d-452f-a888-742d2ea048b8", email: "payrollmanager@peoplepay360.com", fullName: "Rajesh Sharma", employeeCode: "EMP002", jobPosition: "Payroll Lead Manager", role: "HR_PAYROLL_MANAGER" }
+      { id: "8932c43a-f5e8-43d0-baf9-706049870542", email: "vp.finance@peoplepay360.com", fullName: "Siddharth Joshi", employeeCode: "EMP007", jobPosition: "VP Finance", role: "HR_PAYROLL_MANAGER" }
     ],
     HR_MANAGER: [
-      { id: "8c1952f1-3943-4521-9602-086aefdcbdd9", email: "hrmanager@peoplepay360.com", fullName: "Priya Nair", employeeCode: "EMP003", jobPosition: "HR Director", role: "HR_MANAGER" }
+      { id: "ac38d85f-04be-405d-8e93-4099fcd24a14", email: "vp.people@peoplepay360.com", fullName: "Ananya Kulkarni", employeeCode: "EMP006", jobPosition: "VP People", role: "HR_MANAGER" }
     ],
     HR_PAYROLL_USER: [
-      { id: "75056e7b-1aeb-4bb1-b2af-8d406e8222fa", email: "payrolluser@peoplepay360.com", fullName: "Amit Verma", employeeCode: "EMP005", jobPosition: "Payroll Specialist", role: "HR_PAYROLL_USER" }
+      { id: "lead-emp025-id", email: "lead.emp025@peoplepay360.com", fullName: "Payroll Officer", employeeCode: "EMP025", jobPosition: "Payroll Officer", role: "HR_PAYROLL_USER" }
     ],
     EMPLOYEE: [
-      { id: "83264985-a4ae-4609-9886-4bfaed2bc76d", email: "john.doe@peoplepay360.com", fullName: "Rahul Sharma", employeeCode: "EMP004", jobPosition: "Senior Engineer", role: "EMPLOYEE" }
+      { id: "5223ffc9-ce9d-4374-9966-a28144ae9976", email: "gishan750@gmail.com", fullName: "Rajesh Gupta", employeeCode: "EMP003", jobPosition: "VP Engineering", role: "EMPLOYEE" }
     ],
   };
 
@@ -123,7 +125,7 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute -bottom-40 left-1/3 h-[500px] w-[500px] rounded-full bg-sky-500/15 blur-[120px] mix-blend-multiply dark:mix-blend-screen opacity-60" />
 
       {/* Main Glassmorphism Card */}
-      <div className="relative z-10 w-full max-w-[420px] space-y-8 rounded-[32px] border border-white/60 dark:border-white/10 bg-white/70 dark:bg-black/40 p-8 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
+      <div className="relative z-10 w-full max-w-[420px] mx-4 sm:mx-0 space-y-6 sm:space-y-8 rounded-[28px] sm:rounded-[32px] border border-white/60 dark:border-white/10 bg-white/70 dark:bg-black/40 p-5 sm:p-8 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
         
         {/* Header */}
         <div className="flex flex-col items-center text-center space-y-3">
@@ -215,7 +217,7 @@ export default function LoginPage() {
           </div>
 
           {/* Role Tabs */}
-          <div className="flex bg-stone-200/50 dark:bg-stone-900/50 p-1 rounded-xl mb-3 gap-0.5">
+          <div className="grid grid-cols-2 sm:flex sm:items-center bg-stone-200/50 dark:bg-stone-900/50 p-1 rounded-xl mb-3 gap-1">
             {[
               { role: "ADMIN", label: "ADMIN" },
               { role: "HR_PAYROLL_MANAGER", label: "PAYROLL MGR" },
@@ -263,7 +265,7 @@ export default function LoginPage() {
                       <div className="flex items-center gap-1 mt-0.5">
                         <Briefcase className="h-3 w-3 text-stone-400" />
                         <div className="text-[10px] font-medium text-stone-500 dark:text-stone-400 truncate">
-                          {u.jobPosition}
+                          {u.jobPosition} • <span className="text-teal-600 dark:text-teal-400 font-semibold">HR Lead: {getDepartmentLead(u.department).name}</span>
                         </div>
                       </div>
                     </div>

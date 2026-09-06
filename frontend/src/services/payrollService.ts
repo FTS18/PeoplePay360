@@ -64,6 +64,9 @@ export const payrollService = {
   sendPayslips: (id: string) =>
     apiClient.post<string>(`/payroll/payruns/${id}/send-payslips`),
 
+  sendSinglePayslipEmail: (id: string) =>
+    apiClient.post<string>(`/payroll/payslips/${id}/send-email`),
+
   getStructures: () =>
     apiClient.get<SalaryStructure[]>("/payroll/structures"),
 };

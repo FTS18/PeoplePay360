@@ -23,6 +23,7 @@ const employeeSchema = z.object({
   identificationNumber: z.string().optional(),
   workingScheduleId: z.string().optional(),
   status: z.enum(["ACTIVE", "INACTIVE", "TERMINATED"]).default("ACTIVE"),
+  password: z.string().optional(),
 });
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
@@ -113,7 +114,7 @@ export function EmployeeModal({ isOpen, onClose, onSaved, initialData }: Employe
         const createPayload = {
           ...data,
           employeeCode: data.employeeCode,
-          password: "DefaultPassword@123",
+          password: data.password || "DefaultPassword@123",
           role: "EMPLOYEE",
           joiningDate: new Date().toISOString().slice(0, 10),
         };
@@ -192,7 +193,7 @@ export function EmployeeModal({ isOpen, onClose, onSaved, initialData }: Employe
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="text-[11px] text-muted-foreground">Email *</label>
               <input
@@ -210,6 +211,15 @@ export function EmployeeModal({ isOpen, onClose, onSaved, initialData }: Employe
                 className={inputClass}
               />
               {errors.phone && <p className="text-[10px] text-red-500 mt-1">{errors.phone.message}</p>}
+            </div>
+            <div>
+              <label className="text-[11px] text-muted-foreground">Account Password</label>
+              <input
+                type="password"
+                placeholder="Default: DefaultPassword@123"
+                {...register("password")}
+                className={inputClass}
+              />
             </div>
           </div>
         </div>

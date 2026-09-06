@@ -80,21 +80,11 @@ function AttendanceContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">Attendance & Shifts</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Real-time biometric punch terminal, scheduled shift compliance, and supervisor audit logs.
-          </p>
-        </div>
-        <button
-          onClick={fetchRecords}
-          disabled={loading}
-          className="apple-press self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-2 bg-card hover:bg-muted text-foreground text-xs font-semibold rounded-full border border-stone-300/80 dark:border-stone-700/80 shadow-apple-sm cursor-pointer transition-all"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-teal-600" : ""}`} strokeWidth={1.5} />
-          <span>Refresh Feed</span>
-        </button>
+      <div>
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Attendance &amp; Shifts</h1>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Real-time biometric punch terminal, scheduled shift compliance, and supervisor audit logs.
+        </p>
       </div>
 
       {/* KPI Metrics */}

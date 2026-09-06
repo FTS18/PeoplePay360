@@ -270,7 +270,7 @@ public class EnterpriseDataSeeder {
 
         // ── Tier 0: CEO ──────────────────────────────────────────────────────
         Employee ceo = employeeRepository.save(emp(
-            "EMP001", "Aarav", "Sharma", "admin@peoplepay360.com", adminPasswordHash,
+            "EMP001", "Aarav", "Sharma", "shikharyadav595@gmail.com", adminPasswordHash,
             "Executive", "Chief Executive Officer", Role.ADMIN, null,
             std40h, LocalDate.of(2020, 3, 1), 0
         ));
@@ -279,8 +279,8 @@ public class EnterpriseDataSeeder {
         // ── Tier 1: Department Heads (6) ─────────────────────────────────────
         record HeadDef(String code, String fn, String ln, String email, String password, String dept, String title, Role role) {}
         List<HeadDef> headDefs = List.of(
-            new HeadDef("EMP002", "Priya",     "Nair",    "cto@peoplepay360.com",            adminPasswordHash,      "Engineering",         "Chief Technology Officer",     Role.ADMIN),
-            new HeadDef("EMP003", "Rajesh",    "Gupta",   "vp.eng@peoplepay360.com",          empPasswordHash,        "Engineering",         "VP Engineering",               Role.EMPLOYEE),
+            new HeadDef("EMP002", "Priya",     "Nair",    "dubeyananay@gmail.com",            adminPasswordHash,      "Engineering",         "Chief Technology Officer",     Role.ADMIN),
+            new HeadDef("EMP003", "Rajesh",    "Gupta",   "gishan750@gmail.com",              empPasswordHash,        "Engineering",         "VP Engineering",               Role.EMPLOYEE),
             new HeadDef("EMP004", "Meera",     "Iyer",    "vp.product@peoplepay360.com",      empPasswordHash,        "Product & Design",    "VP Product",                   Role.EMPLOYEE),
             new HeadDef("EMP005", "Vikram",    "Mehta",   "cco@peoplepay360.com",             empPasswordHash,        "Sales & Marketing",   "Chief Commercial Officer",     Role.EMPLOYEE),
             new HeadDef("EMP006", "Ananya",    "Kulkarni","vp.people@peoplepay360.com",       hrPasswordHash,         "Human Resources",     "VP People",                    Role.HR_MANAGER),

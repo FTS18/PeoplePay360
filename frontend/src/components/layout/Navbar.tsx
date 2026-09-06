@@ -19,12 +19,14 @@ import { ROUTES } from "@/config/routes";
 import { Role } from "@/types";
 import { cn } from "@/utils/cn";
 import { isParentNavActive, NavItemDef } from "@/utils/navigation";
+import { getDepartmentLead } from "@/utils/departmentLead";
 import { GlobalAttendanceWidget } from "./GlobalAttendanceWidget";
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, role, switchRole } = useAuth();
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [employeesMenuOpen, setEmployeesMenuOpen] = useState(false);
   const [contractsMenuOpen, setContractsMenuOpen] = useState(false);
   const [timeoffMenuOpen, setTimeoffMenuOpen] = useState(false);
@@ -315,21 +317,55 @@ export function Navbar() {
             )}
           </div>
 
-          {/* User Initials Badge */}
+          {/* User Profile Badge & Dropdown */}
           {user && (
-            <div className="flex items-center gap-2 pl-2 border-l border-stone-200/70 dark:border-[var(--border-subtle)]">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-400 text-xs font-bold border border-teal-500/20">
-                {user.firstName[0]}
-                {user.lastName[0] || ""}
-              </div>
-              <div className="hidden lg:block text-left">
-                <p className="text-xs font-semibold leading-none text-foreground">
-                  {user.firstName} {user.lastName}
-                </p>
-                <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
-                  {user.email}
-                </p>
-              </div>
+            <div className="relative pl-2 border-l border-stone-200/70 dark:border-[var(--border-subtle)]">
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="apple-press flex items-center gap-2 text-left cursor-pointer focus:outline-none"
+              >
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-400 text-xs font-bold border border-teal-500/20">
+                  {user.firstName[0]}
+                  {user.lastName[0] || ""}
+                </div>
+                <div className="hidden lg:block text-left">
+                  <p className="text-xs font-semibold leading-none text-foreground flex items-center gap-1">
+                    {user.firstName} {user.lastName}
+                    <ChevronDown className="h-3 w-3 text-muted-foreground" strokeWidth={1.5} />
+                  </p>
+                  <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
+                    {user.email}
+                  </p>
+                </div>
+              </button>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-border bg-card p-3.5 shadow-apple-modal z-50 animate-in fade-in space-y-3">
+                  <div className="flex items-center gap-3 border-b border-border pb-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-600 text-white text-sm font-bold shadow-xs">
+                      {user.firstName[0]}{user.lastName[0] || ""}
+                    </div>
+                    <div className="truncate">
+                      <p className="text-xs font-bold text-foreground truncate">{user.firstName} {user.lastName}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+                    </div>
+                  </div>
+
+                  {/* Assigned Department Lead & HR */}
+                  <div className="rounded-xl border border-teal-500/25 bg-teal-500/5 dark:bg-teal-500/10 p-2.5 space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-teal-700 dark:text-teal-400">
+                      Dept Lead & Assigned HR
+                    </div>
+                    <div className="text-xs font-bold text-foreground">
+                      {getDepartmentLead(user.role === "EMPLOYEE" ? "Engineering" : "Finance").name}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {getDepartmentLead(user.role === "EMPLOYEE" ? "Engineering" : "Finance").position}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

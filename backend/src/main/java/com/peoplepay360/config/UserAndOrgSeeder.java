@@ -52,9 +52,9 @@ public class UserAndOrgSeeder {
         }
         WorkingSchedule savedSchedule = scheduleService.saveSchedule(stdSchedule);
 
-        createEmployee("EMP001", "Aarav", "Sharma", "admin@peoplepay360.com", "Admin@123", "Executive", "Platform Admin", Role.ADMIN, savedSchedule);
-        createEmployee("EMP002", "Priya", "Nair", "hrmanager@peoplepay360.com", "HrManager@123", "Human Resources", "HR Manager", Role.HR_MANAGER, savedSchedule);
-        createEmployee("EMP003", "Rajesh", "Sharma", "payrollmanager@peoplepay360.com", "PayrollManager@123", "Finance", "HR Payroll Manager", Role.HR_PAYROLL_MANAGER, savedSchedule);
+        createEmployee("EMP001", "Aarav", "Sharma", "shikharyadav595@gmail.com", "Admin@123", "Executive", "Platform Admin", Role.ADMIN, savedSchedule);
+        createEmployee("EMP002", "Priya", "Nair", "dubeyananay@gmail.com", "HrManager@123", "Human Resources", "HR Manager", Role.HR_MANAGER, savedSchedule);
+        createEmployee("EMP003", "Rajesh", "Sharma", "gishan750@gmail.com", "PayrollManager@123", "Finance", "HR Payroll Manager", Role.HR_PAYROLL_MANAGER, savedSchedule);
         createEmployee("EMP004", "Amit", "Verma", "payrolluser@peoplepay360.com", "PayrollUser@123", "Finance", "Payroll Officer", Role.HR_PAYROLL_USER, savedSchedule);
         createEmployee("EMP005", "Rahul", "Sharma", "john.doe@peoplepay360.com", "Employee@123", "Engineering", "Senior Software Engineer", Role.EMPLOYEE, savedSchedule);
         createEmployee("EMP006", "Ananya", "Iyer", "jane.smith@peoplepay360.com", "Employee@123", "Product", "Product Manager", Role.EMPLOYEE, savedSchedule);
