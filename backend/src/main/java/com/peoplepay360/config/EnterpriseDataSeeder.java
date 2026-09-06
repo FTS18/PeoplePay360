@@ -527,6 +527,8 @@ public class EnterpriseDataSeeder {
                 .filter(e -> e.getStatus() == EmployeeStatus.ACTIVE)
                 .toList();
 
+        Map<UUID, List<LocalDate[]>> approvedRanges = new HashMap<>();
+
         // Spread 400 requests across past 6 months
         for (int i = 0; i < 400; i++) {
             Employee emp = activeEmps.get(rng.nextInt(activeEmps.size()));
@@ -558,6 +560,23 @@ public class EnterpriseDataSeeder {
             if      (stRoll < 68) status = TimeOffStatus.APPROVED;
             else if (stRoll < 90) status = TimeOffStatus.CONFIRM;
             else                  status = TimeOffStatus.REFUSED;
+
+            // Ensure exclusion constraint "exclude_approved_leave_overlap" is satisfied
+            if (status == TimeOffStatus.APPROVED) {
+                List<LocalDate[]> ranges = approvedRanges.computeIfAbsent(emp.getId(), k -> new ArrayList<>());
+                boolean overlaps = false;
+                for (LocalDate[] r : ranges) {
+                    if (!start.isAfter(r[1]) && !end.isBefore(r[0])) {
+                        overlaps = true;
+                        break;
+                    }
+                }
+                if (overlaps) {
+                    status = TimeOffStatus.CONFIRM;
+                } else {
+                    ranges.add(new LocalDate[]{start, end});
+                }
+            }
 
             requests.add(TimeOffRequest.builder()
                     .employee(emp)
