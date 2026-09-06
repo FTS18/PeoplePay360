@@ -55,6 +55,26 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
     );
 
     @Query("SELECT " +
+           "c.department AS department, " +
+           "COUNT(DISTINCT p.employee.id) AS headcount, " +
+           "COALESCE(SUM(p.grossSalary), 0) AS totalGross, " +
+           "COALESCE(SUM(p.netSalary), 0) AS totalNet " +
+           "FROM Payslip p " +
+           "JOIN p.contract c " +
+           "WHERE p.status = 'PAID' " +
+           "AND p.periodStart >= :sinceDate AND p.periodStart <= :untilDate " +
+           "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
+           "AND (:role IS NULL OR p.employee.role = :role) " +
+           "GROUP BY c.department " +
+           "ORDER BY totalNet DESC")
+    List<DepartmentCostProjection> findDepartmentCostBreakdownBetween(
+            @Param("sinceDate") LocalDate sinceDate,
+            @Param("untilDate") LocalDate untilDate,
+            @Param("department") String department,
+            @Param("role") com.peoplepay360.common.enums.Role role
+    );
+
+    @Query("SELECT " +
            "p.periodStart AS periodStart, " +
            "COUNT(p.id) AS payslipCount, " +
            "COALESCE(SUM(p.grossSalary), 0) AS totalGross, " +
@@ -82,6 +102,20 @@ public interface DashboardQueryRepository extends JpaRepository<Payslip, UUID> {
            "AND (:role IS NULL OR p.employee.role = :role)")
     PayrollAggregateProjection getPayrollAggregates(
             @Param("sinceDate") LocalDate sinceDate,
+            @Param("department") String department,
+            @Param("role") com.peoplepay360.common.enums.Role role
+    );
+
+    @Query("SELECT COALESCE(SUM(p.netSalary), 0) AS totalNet, COALESCE(AVG(p.netSalary), 0) AS avgNet " +
+           "FROM Payslip p " +
+           "JOIN p.contract c " +
+           "WHERE p.status = 'PAID' " +
+           "AND p.periodStart >= :sinceDate AND p.periodStart <= :untilDate " +
+           "AND (:department IS NULL OR c.department = :department OR p.employee.department = :department) " +
+           "AND (:role IS NULL OR p.employee.role = :role)")
+    PayrollAggregateProjection getPayrollAggregatesBetween(
+            @Param("sinceDate") LocalDate sinceDate,
+            @Param("untilDate") LocalDate untilDate,
             @Param("department") String department,
             @Param("role") com.peoplepay360.common.enums.Role role
     );

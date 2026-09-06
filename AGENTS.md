@@ -295,3 +295,4 @@ PeoplePay360/
 2.  **No Direct Float for Currency:** All financial amounts (wages, allowances, deductions, net salary) must use `NUMERIC` or `BigDecimal` to prevent IEEE 754 floating-point rounding inaccuracies.
 3.  **Auditability:** Modifying operational records (e.g., attendance manual overrides) must record the operator's user reference and reason.
 4.  **Zero-Emoji Standard:** All UI components, terminal logs, and commit messages must remain strictly devoid of emojis, using monochromatic SVG icons exclusively.
+5.  **SpEL Formula Evaluation Safety:** Formula expressions in Salary Rules must be evaluated using `SimpleEvaluationContext.forReadOnlyDataBinding()` and protected by keyword guards (`DISALLOWED_SPEL_KEYWORDS`). Salary Rule formula configuration is restricted strictly to `HR_PAYROLL_MANAGER` and `ADMIN` roles to prevent SpEL injection.

@@ -42,6 +42,12 @@ public interface PayslipRepository extends JpaRepository<Payslip, UUID> {
     @Query("SELECT p.status, COUNT(p) FROM Payslip p GROUP BY p.status")
     List<Object[]> countGroupedByStatus();
 
+    @Query("SELECT p.status, COUNT(p) FROM Payslip p WHERE p.periodStart >= :sinceDate AND p.periodStart <= :untilDate GROUP BY p.status")
+    List<Object[]> countGroupedByStatusBetween(
+            @Param("sinceDate") LocalDate sinceDate,
+            @Param("untilDate") LocalDate untilDate
+    );
+
     @Override
     @EntityGraph(attributePaths = {"employee", "payrun"})
     Page<Payslip> findAll(Pageable pageable);

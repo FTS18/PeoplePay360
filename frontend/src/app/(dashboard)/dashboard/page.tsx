@@ -20,12 +20,23 @@ import { attendanceService } from "@/services/attendanceService";
 import { useAuth } from "@/context/AuthContext";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 
-const PERIOD_OPTIONS = [
-  { label: "Sep 2026", months: 1 },
-  { label: "Aug 2026", months: 2 },
-  { label: "Jul 2026", months: 3 },
-  { label: "Past 6 Months", months: 6 },
-  { label: "Past 1 Year", months: 12 },
+export interface PeriodOption {
+  id: string;
+  label: string;
+  sinceDate: string;
+  untilDate: string;
+}
+
+const PERIOD_OPTIONS: PeriodOption[] = [
+  { id: "PAST_1_YEAR", label: "Past 1 Year", sinceDate: "2025-09-01", untilDate: "2026-09-30" },
+  { id: "PAST_6_MONTHS", label: "Past 6 Months", sinceDate: "2026-03-01", untilDate: "2026-09-30" },
+  { id: "2026-09", label: "Sep 2026", sinceDate: "2026-09-01", untilDate: "2026-09-30" },
+  { id: "2026-08", label: "Aug 2026", sinceDate: "2026-08-01", untilDate: "2026-08-31" },
+  { id: "2026-07", label: "Jul 2026", sinceDate: "2026-07-01", untilDate: "2026-07-31" },
+  { id: "2026-06", label: "Jun 2026", sinceDate: "2026-06-01", untilDate: "2026-06-30" },
+  { id: "2026-05", label: "May 2026", sinceDate: "2026-05-01", untilDate: "2026-05-31" },
+  { id: "2026-04", label: "Apr 2026", sinceDate: "2026-04-01", untilDate: "2026-04-30" },
+  { id: "2026-03", label: "Mar 2026", sinceDate: "2026-03-01", untilDate: "2026-03-31" },
 ];
 
 export default function DashboardPage() {
@@ -36,7 +47,7 @@ export default function DashboardPage() {
     autoStartTour();
   }, [autoStartTour]);
 
-  const [selectedPeriod, setSelectedPeriod] = useState<number>(1);
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState<string>("PAST_1_YEAR");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [selectedEmployeeType, setSelectedEmployeeType] = useState<string>("ALL");
   const [selectedCompany, setSelectedCompany] = useState<string>("OXP Pvt Ltd");
@@ -74,13 +85,7 @@ export default function DashboardPage() {
   const [recentPayruns, setRecentPayruns] = useState<any[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<any[]>([]);
 
-  const getSinceDate = (months: number) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - months);
-    return d.toISOString().slice(0, 10);
-  };
-
-  const sinceDate = getSinceDate(selectedPeriod);
+  const currentPeriod = PERIOD_OPTIONS.find((p) => p.id === selectedPeriodKey) || PERIOD_OPTIONS[0];
 
   useEffect(() => {
     apiClient
@@ -97,8 +102,10 @@ export default function DashboardPage() {
       const isEmployee = role === "EMPLOYEE";
       try {
         const deptQuery = selectedDepartment ? `&department=${encodeURIComponent(selectedDepartment)}` : "";
+        const periodQuery = `sinceDate=${currentPeriod.sinceDate}&untilDate=${currentPeriod.untilDate}`;
+
         const [summaryRes, payrunsRes, attendanceRes, payslipsRes] = await Promise.all([
-          apiClient.get<any>(`/dashboard/summary?sinceDate=${sinceDate}${deptQuery}`).catch(() => null),
+          apiClient.get<any>(`/dashboard/summary?${periodQuery}${deptQuery}`).catch(() => null),
           !isEmployee ? payrollService.getPayruns(0, 3).catch(() => null) : Promise.resolve(null),
           attendanceService.getAll(0, 5, isEmployee ? user?.id : undefined).catch(() => null),
           isEmployee && user?.id ? payrollService.getPayslips(undefined, 0, 3, user.id).catch(() => null) : Promise.resolve(null),
@@ -192,7 +199,7 @@ export default function DashboardPage() {
       }
     }
     loadDashboard();
-  }, [sinceDate, selectedDepartment, role, user?.id]);
+  }, [currentPeriod.sinceDate, currentPeriod.untilDate, selectedDepartment, role, user?.id]);
 
   const isEmployeeRole = role === "EMPLOYEE";
 
@@ -284,12 +291,12 @@ export default function DashboardPage() {
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-xs">
             <span className="text-muted-foreground font-semibold">Period:</span>
             <select
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(Number(e.target.value))}
+              value={selectedPeriodKey}
+              onChange={(e) => setSelectedPeriodKey(e.target.value)}
               className="bg-transparent text-foreground font-bold focus:outline-none cursor-pointer"
             >
               {PERIOD_OPTIONS.map((opt) => (
-                <option key={opt.months} value={opt.months} className="bg-card text-foreground">{opt.label}</option>
+                <option key={opt.id} value={opt.id} className="bg-card text-foreground">{opt.label}</option>
               ))}
             </select>
           </div>
@@ -380,8 +387,8 @@ export default function DashboardPage() {
 
       {/* Middle Visual Analytics Row matching Wireframe 6 (3 Columns) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-stretch">
-        <DepartmentCostWidget sinceDate={sinceDate} selectedDepartment={selectedDepartment} />
-        <PayrollTrendWidget sinceDate={sinceDate} />
+        <DepartmentCostWidget sinceDate={currentPeriod.sinceDate} selectedDepartment={selectedDepartment} />
+        <PayrollTrendWidget sinceDate={currentPeriod.sinceDate} />
         <div className="space-y-4 flex flex-col justify-between h-full">
           <PayslipStatusWidget
             draftCount={payslipCounts.draft}

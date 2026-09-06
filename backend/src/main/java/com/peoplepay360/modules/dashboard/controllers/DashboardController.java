@@ -73,25 +73,28 @@ public class DashboardController {
         private BigDecimal totalNet;
     }
 
-    @Cacheable(value = "dashboardSummary", key = "(#sinceDate != null ? #sinceDate.toString() : 'default') + '-' + (#department != null ? #department : 'ALL') + '-' + (#role != null ? #role.name() : 'ALL')")
+    @Cacheable(value = "dashboardSummary", key = "(#sinceDate != null ? #sinceDate.toString() : 'default') + '-' + (#untilDate != null ? #untilDate.toString() : 'default') + '-' + (#department != null ? #department : 'ALL') + '-' + (#role != null ? #role.name() : 'ALL')")
     @GetMapping("/summary")
     public ApiResponse<DashboardSummaryResponse> getSummary(
             @RequestParam(required = false) LocalDate sinceDate,
+            @RequestParam(required = false) LocalDate untilDate,
             @RequestParam(required = false) String department,
             @RequestParam(required = false) Role role
     ) {
         LocalDate queryDate = sinceDate != null ? sinceDate : LocalDate.now().minusMonths(12);
+        LocalDate endDate = untilDate != null ? untilDate : LocalDate.of(2030, 12, 31);
 
-        // ── 1 query: SUM + AVG in one scan. Use EPOCH_START as fallback so we never re-query. ──
-        PayrollAggregateProjection aggregates = dashboardQueryRepository.getPayrollAggregates(EPOCH_START, department, role);
-        // Prefer the tighter date window result; fall back to all-time only if the window returns zero.
-        PayrollAggregateProjection windowAggregates = dashboardQueryRepository.getPayrollAggregates(queryDate, department, role);
-        BigDecimal totalPaid = (windowAggregates != null && !isZeroOrNull(windowAggregates.getTotalNet()))
+        // ── 1 query: SUM + AVG in target date window ──
+        PayrollAggregateProjection windowAggregates = (untilDate != null)
+                ? dashboardQueryRepository.getPayrollAggregatesBetween(queryDate, endDate, department, role)
+                : dashboardQueryRepository.getPayrollAggregates(queryDate, department, role);
+
+        BigDecimal totalPaid = (windowAggregates != null && windowAggregates.getTotalNet() != null)
                 ? windowAggregates.getTotalNet()
-                : (aggregates != null ? aggregates.getTotalNet() : BigDecimal.ZERO);
-        BigDecimal avgSalary = (windowAggregates != null && !isZeroOrNull(windowAggregates.getAvgNet()))
+                : BigDecimal.ZERO;
+        BigDecimal avgSalary = (windowAggregates != null && windowAggregates.getAvgNet() != null)
                 ? windowAggregates.getAvgNet()
-                : (aggregates != null ? aggregates.getAvgNet() : BigDecimal.ZERO);
+                : BigDecimal.ZERO;
 
         // ── 1 query: all attendance status counts grouped ──
         Map<AttendanceStatus, Long> attCounts = buildAttendanceCounts();
@@ -103,13 +106,17 @@ public class DashboardController {
         long manualEdits = attendanceRecordRepository.countByManualOverride(true);
 
         // ── 1 query: all time-off status counts grouped ──
-        Map<TimeOffStatus, Long> leaveCounts = buildLeaveCounts();
+        Map<TimeOffStatus, Long> leaveCounts = (untilDate != null)
+                ? buildLeaveCountsBetween(queryDate, endDate)
+                : buildLeaveCounts();
         long pendingLeaves  = leaveCounts.getOrDefault(TimeOffStatus.CONFIRM, 0L);
         long approvedLeaves = leaveCounts.getOrDefault(TimeOffStatus.APPROVED, 0L);
         long refusedLeaves  = leaveCounts.getOrDefault(TimeOffStatus.REFUSED, 0L);
 
-        // ── 1 query: all payslip status counts grouped ──
-        Map<PayslipStatus, Long> payslipCounts = buildPayslipCounts();
+        // ── 1 query: all payslip status counts grouped for the selected period ──
+        Map<PayslipStatus, Long> payslipCounts = (untilDate != null)
+                ? buildPayslipCountsBetween(queryDate, endDate)
+                : buildPayslipCounts();
         long totalPayslips = payslipCounts.values().stream().mapToLong(Long::longValue).sum();
         long draftPs     = payslipCounts.getOrDefault(PayslipStatus.DRAFT, 0L);
         long computedPs  = payslipCounts.getOrDefault(PayslipStatus.COMPUTED, 0L);
@@ -211,20 +218,22 @@ public class DashboardController {
         return ApiResponse.ok(response);
     }
 
-    @Cacheable(value = "departmentCosts", key = "(#sinceDate != null ? #sinceDate.toString() : 'default') + '-' + (#department != null ? #department : 'ALL') + '-' + (#role != null ? #role.name() : 'ALL')")
+    @Cacheable(value = "departmentCosts", key = "(#sinceDate != null ? #sinceDate.toString() : 'default') + '-' + (#untilDate != null ? #untilDate.toString() : 'default') + '-' + (#department != null ? #department : 'ALL') + '-' + (#role != null ? #role.name() : 'ALL')")
     @GetMapping("/department-costs")
     public ApiResponse<List<DepartmentCostDto>> getDepartmentCosts(
             @RequestParam(required = false) LocalDate sinceDate,
+            @RequestParam(required = false) LocalDate untilDate,
             @RequestParam(required = false) String department,
             @RequestParam(required = false) Role role
     ) {
         LocalDate queryDate = sinceDate != null ? sinceDate : LocalDate.now().minusMonths(12);
-        List<DepartmentCostProjection> projections = dashboardQueryRepository.findDepartmentCostBreakdown(queryDate, department, role);
-        if (projections == null || projections.isEmpty()) {
-            projections = dashboardQueryRepository.findDepartmentCostBreakdown(EPOCH_START, department, role);
-        }
+        LocalDate endDate = untilDate != null ? untilDate : LocalDate.of(2030, 12, 31);
 
-        List<DepartmentCostDto> costs = projections.stream()
+        List<DepartmentCostProjection> projections = (untilDate != null)
+                ? dashboardQueryRepository.findDepartmentCostBreakdownBetween(queryDate, endDate, department, role)
+                : dashboardQueryRepository.findDepartmentCostBreakdown(queryDate, department, role);
+
+        List<DepartmentCostDto> costs = (projections != null ? projections : java.util.Collections.<DepartmentCostProjection>emptyList()).stream()
                 .map(p -> DepartmentCostDto.builder()
                         .department(p.getDepartment())
                         .headcount(p.getHeadcount())
@@ -279,9 +288,25 @@ public class DashboardController {
         return result;
     }
 
+    private Map<TimeOffStatus, Long> buildLeaveCountsBetween(LocalDate sinceDate, LocalDate untilDate) {
+        Map<TimeOffStatus, Long> result = new EnumMap<>(TimeOffStatus.class);
+        for (Object[] row : timeOffRequestRepository.countGroupedByStatusBetween(sinceDate, untilDate)) {
+            result.put((TimeOffStatus) row[0], (Long) row[1]);
+        }
+        return result;
+    }
+
     private Map<PayslipStatus, Long> buildPayslipCounts() {
         Map<PayslipStatus, Long> result = new EnumMap<>(PayslipStatus.class);
         for (Object[] row : payslipRepository.countGroupedByStatus()) {
+            result.put((PayslipStatus) row[0], (Long) row[1]);
+        }
+        return result;
+    }
+
+    private Map<PayslipStatus, Long> buildPayslipCountsBetween(LocalDate sinceDate, LocalDate untilDate) {
+        Map<PayslipStatus, Long> result = new EnumMap<>(PayslipStatus.class);
+        for (Object[] row : payslipRepository.countGroupedByStatusBetween(sinceDate, untilDate)) {
             result.put((PayslipStatus) row[0], (Long) row[1]);
         }
         return result;

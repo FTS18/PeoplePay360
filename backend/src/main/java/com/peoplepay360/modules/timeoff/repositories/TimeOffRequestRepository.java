@@ -86,6 +86,12 @@ public interface TimeOffRequestRepository extends JpaRepository<TimeOffRequest, 
     @Query("SELECT r.status, COUNT(r) FROM TimeOffRequest r GROUP BY r.status")
     List<Object[]> countGroupedByStatus();
 
+    @Query("SELECT r.status, COUNT(r) FROM TimeOffRequest r WHERE r.startDate >= :sinceDate AND r.startDate <= :untilDate GROUP BY r.status")
+    List<Object[]> countGroupedByStatusBetween(
+            @Param("sinceDate") LocalDate sinceDate,
+            @Param("untilDate") LocalDate untilDate
+    );
+
     @Query("SELECT COUNT(r) FROM TimeOffRequest r " +
            "WHERE r.employee.id = :employeeId " +
            "AND r.status = 'CONFIRM' " +

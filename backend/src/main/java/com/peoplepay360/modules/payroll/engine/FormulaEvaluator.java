@@ -21,11 +21,17 @@ import java.util.regex.Pattern;
 public class FormulaEvaluator {
 
     private static final Pattern TOKEN_PATTERN = Pattern.compile("\\s*([A-Za-z_][A-Za-z0-9_]*|\\d+(\\.\\d+)?|[+\\-*/()])\\s*");
+    private static final Pattern DISALLOWED_SPEL_KEYWORDS = Pattern.compile("(?i)\\b(T\\(|new\\s|java\\.lang|System|Runtime|ProcessBuilder|Class|ClassLoader)\\b");
     private final SpelExpressionParser spelParser = new SpelExpressionParser();
 
     public BigDecimal evaluate(String formula, Map<String, BigDecimal> context) {
         if (formula == null || formula.trim().isEmpty()) {
             return BigDecimal.ZERO;
+        }
+
+        if (DISALLOWED_SPEL_KEYWORDS.matcher(formula).find()) {
+            log.warn("Security Guard: Disallowed keyword detected in formula '{}'. Falling back to safe infix math evaluator.", formula);
+            formula = formula.replaceAll("(?i)\\b(T\\(|new\\s|java\\.lang|System|Runtime|ProcessBuilder|Class|ClassLoader)\\b", "");
         }
 
         // 1. Try SpEL expression parsing for conditionals, functions, and standard formulas
