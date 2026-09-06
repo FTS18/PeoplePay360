@@ -216,7 +216,7 @@ function SalaryRulesContent() {
               <span className="font-bold text-amber-600 dark:text-amber-400">• Percentage:</span> calculates the rule as a percentage of a selected base such as Contract Wage, Basic Salary, or Gross Salary, e.g. HRA = 20% × Basic Salary.
             </div>
             <div>
-              <span className="font-bold text-amber-600 dark:text-amber-400">• Python Code / Formula:</span> is used for advanced calculations where fixed or percentage methods are not sufficient, such as attendance-based salary, overtime, unpaid leave deductions, or calculations using multiple salary-rule values.
+              <span className="font-bold text-amber-600 dark:text-amber-400">• Formula Expression:</span> is used for advanced calculations where fixed or percentage methods are not sufficient, such as attendance-based salary, overtime, unpaid leave deductions, or calculations using multiple salary-rule values.
             </div>
           </div>
         </div>

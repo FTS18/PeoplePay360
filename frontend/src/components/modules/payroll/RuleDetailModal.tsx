@@ -19,7 +19,7 @@ export function RuleDetailModal({
   onSave,
 }: RuleDetailModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"FIXED" | "PERCENTAGE" | "PYTHON">("PERCENTAGE");
+  const [activeTab, setActiveTab] = useState<"FIXED" | "PERCENTAGE" | "FORMULA">("PERCENTAGE");
   const [isEditing, setIsEditing] = useState<boolean>(false);
 
   useEffect(() => {
@@ -98,7 +98,7 @@ export function RuleDetailModal({
               >
                 <option value="PERCENTAGE">Percentage of Wage</option>
                 <option value="FIXED">Fixed Amount</option>
-                <option value="FORMULA">Python Code / Formula</option>
+                <option value="FORMULA">Formula / Expression</option>
               </select>
             </div>
 
@@ -163,12 +163,12 @@ export function RuleDetailModal({
                 Percentage of Wage
               </button>
               <button
-                onClick={() => setActiveTab("PYTHON")}
+                onClick={() => setActiveTab("FORMULA")}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                  activeTab === "PYTHON" ? "bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20" : "text-muted-foreground hover:text-foreground"
+                  activeTab === "FORMULA" ? "bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Python Code
+                Formula Expression
               </button>
             </div>
 
@@ -178,7 +178,7 @@ export function RuleDetailModal({
               <div className="text-teal-600 dark:text-teal-400 font-semibold">
                 {activeTab === "PERCENTAGE" && `result = contract.wage * 0.50`}
                 {activeTab === "FIXED" && `result = 2000.00`}
-                {activeTab === "PYTHON" && `result = categories['BASIC'] * 0.40 if categories.get('BASIC') else 0`}
+                {activeTab === "FORMULA" && `result = BASIC * 0.40`}
               </div>
             </div>
           </div>

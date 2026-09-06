@@ -55,7 +55,7 @@ export default function TermsOfServicePage() {
               PeoplePay360 provides a zero-float, high-precision calculation engine utilizing `BigDecimal` arithmetic. The platform executes configured salary structures in sequential rule order (e.g., Sequence 10: Basic, Sequence 20: HRA, Sequence 30: Deductions).
             </p>
             <p>
-              Enterprise clients remain responsible for validating custom formula expressions (such as Python formulas `BASIC * 0.40`) prior to initiating payruns.
+              Enterprise clients remain responsible for validating custom formula expressions (such as `BASIC * 0.40`) prior to initiating payruns.
             </p>
           </section>
 
